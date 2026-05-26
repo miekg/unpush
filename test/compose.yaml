@@ -1,0 +1,20 @@
+configs:
+  app_compose:
+    file: ./app.yaml
+
+services:
+  deployer:
+    image: uncloud-deployer:latest
+    volumes:
+      - /run/uncloud/uncloud.sock:/run/uncloud/uncloud.sock
+    configs:
+      - source: app_compose
+        target: /deploy/compose.yaml
+    environment:
+      - DEPLOYER_WEBHOOK_SECRET=testsecret
+      - DEPLOYER_BRANCH=main
+    ports:
+      - target: 8080
+        published: 8080
+        mode: host
+    restart: always

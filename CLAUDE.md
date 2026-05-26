@@ -23,13 +23,7 @@ misc/design.md Architecture decisions and options considered during design.
 
 ## Key dependency
 
-The deployer imports `github.com/psviderski/uncloud` via a `replace` directive pointing to `../uncloud`. This means:
-
-- Both repos must be siblings on disk during development.
-- Docker builds must use the parent directory as the build context.
-- There is no published module version yet. When uncloud publishes releases, the replace directive should be removed.
-
-The uncloud packages used directly:
+The deployer imports `github.com/psviderski/uncloud` as a standard Go module dependency pinned to a specific commit. The uncloud packages used directly:
 
 | Package | Purpose |
 |---|---|

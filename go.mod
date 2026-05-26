@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/compose-spec/compose-go/v2 v2.9.0
-	github.com/psviderski/uncloud v0.0.0
+	github.com/psviderski/uncloud v0.19.1-0.20260526000712-9424daff2829
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -29,6 +29,7 @@ require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/buger/goterm v1.0.4 // indirect
+	github.com/caarlos0/go-version v0.2.2 // indirect
 	github.com/caddyserver/caddy/v2 v2.8.4 // indirect
 	github.com/caddyserver/certmagic v0.21.4 // indirect
 	github.com/caddyserver/zerossl v0.1.3 // indirect
@@ -288,5 +289,3 @@ require (
 	modernc.org/sqlite v1.36.3 // indirect
 	tags.cncf.io/container-device-interface v1.0.1 // indirect
 )
-
-replace github.com/psviderski/uncloud => ../uncloud

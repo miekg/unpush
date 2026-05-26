@@ -15,8 +15,8 @@ description = "Run the deployer"
 run = "go run ."
 
 [tasks."build:image"]
-description = "Build the Docker image (run from parent directory)"
-run = "docker build -f uncloud-deployer/Dockerfile -t uncloud-deployer ../."
+description = "Build the Docker image"
+run = "docker build -t uncloud-deployer ."
 
 [tasks.lint]
 description = "Run golangci-lint"

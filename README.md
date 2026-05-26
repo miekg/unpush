@@ -81,11 +81,8 @@ Set `DEPLOYER_FORCE_RECREATE=true`. The deployer will recreate containers on eve
 
 ## Building from source
 
-The Dockerfile expects the parent directory of both repos as the build context, because `uncloud-deployer` imports `uncloud` via a local `replace` directive.
-
 ```bash
-# From the directory containing both uncloud/ and uncloud-deployer/
-docker build -f uncloud-deployer/Dockerfile -t uncloud-deployer .
+docker build -t uncloud-deployer .
 ```
 
 Or build the binary with mise:
