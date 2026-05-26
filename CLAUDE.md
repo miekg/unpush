@@ -15,13 +15,15 @@ main.go        Entry point. Sets up the HTTP server, handles shutdown.
 config.go      Reads all configuration from environment variables.
 webhook.go     GitHub webhook handler. Reads body, verifies HMAC, dispatches to deployer.
 deployer.go    Core deploy logic. Connects to socket, loads compose file, plans and executes deploy.
-Dockerfile     Multi-stage build. Context must be the parent directory of both repos.
+build.go       Builds services with a build directive and pushes images to cluster machines.
+repo.go        Clones or fetches the repository at the push commit (repo mode only).
+Dockerfile     Multi-stage build. Build context is the deployer directory.
 compose.yaml   Reference compose file for deploying the deployer itself into Uncloud.
 mise.toml      Build tooling. Go 1.26.1 via mise. Tasks: build, run, build:image.
 misc/design.md Architecture decisions and options considered during design.
 ```
 
-## Key dependency
+## Key dependencies
 
 The deployer imports `github.com/psviderski/uncloud` as a standard Go module dependency pinned to a specific commit. The uncloud packages used directly:
 
@@ -32,6 +34,15 @@ The deployer imports `github.com/psviderski/uncloud` as a standard Go module dep
 | `pkg/client/compose` | `LoadProject` and `NewDeploymentWithStrategy` implement `uc deploy` logic |
 | `pkg/client/deploy` | `RollingStrategy` controls how containers are updated |
 
+In repo mode, the deployer also uses these directly (both are transitive dependencies of uncloud):
+
+| Package | Purpose |
+|---|---|
+| `github.com/docker/cli/cli/command` | Creates a Docker CLI client for the build step |
+| `github.com/docker/compose/v2/pkg/compose` | Builds images via the Compose Go library |
+
+`internal/cli.BuildServices` in uncloud contains equivalent build logic but is not importable from outside the module. `build.go` replicates the relevant parts. See the TODO comment there for the long-term option.
+
 ## Deploy flow
 
 1. `webhook.go` receives POST `/webhook`.
@@ -39,7 +50,11 @@ The deployer imports `github.com/psviderski/uncloud` as a standard Go module dep
 3. The event is checked: must be a push to the configured branch.
 4. `triggerDeploy` sends the event to the deployer's channel (capacity 1). A second concurrent event is queued. A third is dropped with a warning.
 5. `deployLoop` runs in a goroutine and processes events one at a time.
-6. `runDeploy` opens a fresh connection to the socket for each deploy, loads the compose file, plans the deployment, and executes it.
+6. `runDeploy` handles the deploy:
+   - If `DEPLOYER_REPO` is set: clones or fetches the repository, checks out the exact push commit.
+   - Connects to the Uncloud socket and loads the compose file.
+   - If `DEPLOYER_REPO` is set and any services have a `build` directive: builds images locally via Docker and pushes them to all cluster machines.
+   - Plans and executes the deployment.
 
 ## Development
 
@@ -50,8 +65,8 @@ mise install
 # Build binary
 mise run build
 
-# Build Docker image (run from parent directory)
-cd .. && docker build -f uncloud-deployer/Dockerfile -t uncloud-deployer .
+# Build Docker image
+mise run build:image
 ```
 
 ## Testing
