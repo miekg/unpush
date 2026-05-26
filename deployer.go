@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"path/filepath"
 	"time"
 
 	composecli "github.com/compose-spec/compose-go/v2/cli"
@@ -51,10 +52,23 @@ func (d *Deployer) runDeploy(event pushEvent) {
 	}
 
 	start := time.Now()
-	slog.Info("Starting deploy", "commit", commitID, "compose_file", d.cfg.ComposeFile)
+	slog.Info("Starting deploy", "commit", commitID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
+
+	composeFile := d.cfg.ComposeFile
+	if d.cfg.RepoURL != "" {
+		if err := prepareRepo(ctx, d.cfg.WorkDir, d.cfg.RepoURL, event.HeadCommit.ID); err != nil {
+			slog.Error("Failed to prepare repository", "error", err, "commit", commitID)
+			return
+		}
+		if !filepath.IsAbs(composeFile) {
+			composeFile = filepath.Join(d.cfg.WorkDir, composeFile)
+		}
+	}
+
+	slog.Info("Loading compose file", "commit", commitID, "file", composeFile)
 
 	conn := connector.NewUnixConnector(d.cfg.SocketPath)
 	cli, err := client.New(ctx, conn)
@@ -64,12 +78,17 @@ func (d *Deployer) runDeploy(event pushEvent) {
 	}
 	defer cli.Close()
 
-	project, err := compose.LoadProject(ctx, []string{d.cfg.ComposeFile},
-		composecli.WithOsEnv,
-	)
+	project, err := compose.LoadProject(ctx, []string{composeFile}, composecli.WithOsEnv)
 	if err != nil {
-		slog.Error("Failed to load compose file", "error", err, "file", d.cfg.ComposeFile)
+		slog.Error("Failed to load compose file", "error", err, "file", composeFile)
 		return
+	}
+
+	if d.cfg.RepoURL != "" {
+		if err := buildAndPush(ctx, project, cli); err != nil {
+			slog.Error("Failed to build and push images", "error", err, "commit", commitID)
+			return
+		}
 	}
 
 	strategy := &deploy.RollingStrategy{
