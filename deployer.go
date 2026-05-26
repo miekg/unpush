@@ -59,7 +59,7 @@ func (d *Deployer) runDeploy(event pushEvent) {
 
 	composeFile := d.cfg.ComposeFile
 	if d.cfg.RepoURL != "" {
-		if err := prepareRepo(ctx, d.cfg.WorkDir, d.cfg.RepoURL, event.HeadCommit.ID); err != nil {
+		if err := prepareRepo(ctx, d.cfg.WorkDir, d.cfg.RepoURL, d.cfg.RepoToken, event.HeadCommit.ID); err != nil {
 			slog.Error("Failed to prepare repository", "error", err, "commit", commitID)
 			return
 		}

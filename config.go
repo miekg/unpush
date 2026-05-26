@@ -15,6 +15,9 @@ type Config struct {
 	// the deployer clones the repository at the push commit and uses it as the build context for services with
 	// a build directive. Requires the Docker socket to be mounted at /var/run/docker.sock.
 	RepoURL string
+	// RepoToken is a GitHub personal access token used to authenticate when cloning a private repository.
+	// Requires at least Contents: read permission on the repository.
+	RepoToken string
 	// WorkDir is the local directory where the repository is cloned when RepoURL is set.
 	WorkDir string
 }
@@ -37,6 +40,7 @@ func loadConfig() Config {
 		Branch:        getEnv("DEPLOYER_BRANCH", "main"),
 		ForceRecreate: os.Getenv("DEPLOYER_FORCE_RECREATE") == "true",
 		RepoURL:       repoURL,
+		RepoToken:     os.Getenv("DEPLOYER_REPO_TOKEN"),
 		WorkDir:       getEnv("DEPLOYER_WORK_DIR", "/deploy/work"),
 	}
 }
