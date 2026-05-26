@@ -1,0 +1,14 @@
+services:
+  deployer:
+    image: ghcr.io/psviderski/uncloud-deployer:latest
+    volumes:
+      - /run/uncloud/uncloud.sock:/run/uncloud/uncloud.sock
+      - ./deploy/compose.yaml:/deploy/compose.yaml:ro
+    environment:
+      - DEPLOYER_WEBHOOK_SECRET=${DEPLOYER_WEBHOOK_SECRET}
+      - DEPLOYER_BRANCH=${DEPLOYER_BRANCH:-main}
+      - DEPLOYER_FORCE_RECREATE=${DEPLOYER_FORCE_RECREATE:-false}
+    ports:
+      - target: 8080
+        published: 8080
+    restart: always

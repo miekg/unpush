@@ -1,0 +1,27 @@
+[settings]
+experimental = true
+
+[tools]
+go = "1.26.1"
+golangci-lint = "2.11.2"
+pre-commit = "4.6.0"
+
+[tasks.build]
+description = "Build the deployer binary"
+run = "go build -o deployer ."
+
+[tasks.run]
+description = "Run the deployer"
+run = "go run ."
+
+[tasks."build:image"]
+description = "Build the Docker image (run from parent directory)"
+run = "docker build -f uncloud-deployer/Dockerfile -t uncloud-deployer ../."
+
+[tasks.lint]
+description = "Run golangci-lint"
+run = "golangci-lint run"
+
+[tasks.test]
+description = "Run tests"
+run = "go test ./..."
