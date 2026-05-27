@@ -23,14 +23,23 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	for _, t := range cfg.Targets {
 		d := newDeployer(t)
-		if t.WebhookSecret == "" {
-			slog.Warn("Target has no webhook_secret, signatures will not be verified", "target", t.Name)
+		if t.PollInterval != "" {
+			interval, _ := time.ParseDuration(t.PollInterval) // already validated by loadFileConfig
+			slog.Info("Registered poll target", "name", t.Name, "interval", interval, "branch", t.Branch, "compose_file", t.ComposeFile)
+			go d.startPoller(ctx)
+		} else {
+			if t.WebhookSecret == "" {
+				slog.Warn("Target has no webhook_secret, signatures will not be verified", "target", t.Name)
+			}
+			path := "/webhook/" + t.Name
+			slog.Info("Registered webhook target", "name", t.Name, "path", path, "branch", t.Branch, "compose_file", t.ComposeFile)
+			mux.HandleFunc("POST "+path, d.handleWebhook)
 		}
-		path := "/webhook/" + t.Name
-		slog.Info("Registered target", "name", t.Name, "path", path, "branch", t.Branch, "compose_file", t.ComposeFile)
-		mux.HandleFunc("POST "+path, d.handleWebhook)
 	}
 
 	mux.HandleFunc("GET /healthz", handleHealthz)
@@ -41,9 +50,6 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
 
 	go func() {
 		slog.Info("Starting webhook server", "addr", cfg.ListenAddr)

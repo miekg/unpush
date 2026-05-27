@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -33,6 +34,10 @@ type TargetConfig struct {
 	RepoToken string `yaml:"repo_token"`
 	// WorkDir is the local directory where the repository is cloned when RepoURL is set.
 	WorkDir string `yaml:"work_dir"`
+	// PollInterval enables cron pull mode: the deployer polls the remote branch HEAD at this interval
+	// and triggers a deploy when a new commit is detected. Mutually exclusive with WebhookSecret.
+	// Requires RepoURL. Uses Go duration format, e.g. "5m", "1h".
+	PollInterval string `yaml:"poll_interval"`
 	// SocketPath is the path to the Uncloud daemon Unix socket. Inherited from global config; not set
 	// per-target in YAML.
 	SocketPath string `yaml:"-"`
@@ -83,6 +88,18 @@ func loadFileConfig(path string) (AppConfig, error) {
 			return AppConfig{}, fmt.Errorf("duplicate target name %q", t.Name)
 		}
 		seen[t.Name] = true
+
+		if t.WebhookSecret != "" && t.PollInterval != "" {
+			return AppConfig{}, fmt.Errorf("target %q: webhook_secret and poll_interval are mutually exclusive", t.Name)
+		}
+		if t.PollInterval != "" && t.RepoURL == "" {
+			return AppConfig{}, fmt.Errorf("target %q: poll_interval requires repo_url", t.Name)
+		}
+		if t.PollInterval != "" {
+			if _, err := time.ParseDuration(t.PollInterval); err != nil {
+				return AppConfig{}, fmt.Errorf("target %q: invalid poll_interval %q: %w", t.Name, t.PollInterval, err)
+			}
+		}
 
 		if t.Branch == "" {
 			t.Branch = "main"

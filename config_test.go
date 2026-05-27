@@ -76,6 +76,26 @@ func TestLoadFileConfig_Defaults(t *testing.T) {
 	assert.Equal(t, "/run/uncloud/uncloud.sock", tgt.SocketPath)
 }
 
+func TestLoadFileConfig_PollTarget(t *testing.T) {
+	path := writeConfig(t, `
+targets:
+  - name: app
+    poll_interval: 5m
+    repo_url: https://github.com/org/app
+    branch: production
+`)
+	t.Setenv("DEPLOYER_CONFIG", path)
+
+	cfg, err := loadAppConfig()
+	require.NoError(t, err)
+
+	tgt := cfg.Targets[0]
+	assert.Equal(t, "5m", tgt.PollInterval)
+	assert.Equal(t, "https://github.com/org/app", tgt.RepoURL)
+	assert.Equal(t, "production", tgt.Branch)
+	assert.Empty(t, tgt.WebhookSecret)
+}
+
 func TestLoadFileConfig_Validation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -91,6 +111,21 @@ func TestLoadFileConfig_Validation(t *testing.T) {
 			name:    "duplicate target name",
 			yaml:    "targets:\n  - name: app\n  - name: app\n",
 			wantErr: `duplicate target name "app"`,
+		},
+		{
+			name:    "poll_interval and webhook_secret mutually exclusive",
+			yaml:    "targets:\n  - name: app\n    webhook_secret: s3cr3t\n    poll_interval: 5m\n    repo_url: https://github.com/org/app\n",
+			wantErr: `webhook_secret and poll_interval are mutually exclusive`,
+		},
+		{
+			name:    "poll_interval requires repo_url",
+			yaml:    "targets:\n  - name: app\n    poll_interval: 5m\n",
+			wantErr: `poll_interval requires repo_url`,
+		},
+		{
+			name:    "invalid poll_interval duration",
+			yaml:    "targets:\n  - name: app\n    poll_interval: notaduration\n    repo_url: https://github.com/org/app\n",
+			wantErr: `invalid poll_interval`,
 		},
 	}
 
