@@ -33,6 +33,21 @@ func TestLoadEnvConfig_Defaults(t *testing.T) {
 	assert.False(t, tgt.ForceRecreate)
 }
 
+func TestLoadEnvConfig_RepoMode(t *testing.T) {
+	t.Setenv("DEPLOYER_CONFIG", "")
+	t.Setenv("DEPLOYER_REPO", "https://github.com/org/app")
+	t.Setenv("DEPLOYER_COMPOSE_FILE", "")
+	t.Setenv("DEPLOYER_WORK_DIR", "")
+
+	cfg, err := loadAppConfig()
+	require.NoError(t, err)
+
+	tgt := cfg.Targets[0]
+	// compose_file defaults to relative "compose.yaml" resolved inside work_dir when repo is set
+	assert.Equal(t, "compose.yaml", tgt.ComposeFile)
+	assert.Equal(t, "/deploy/work", tgt.WorkDir)
+}
+
 func TestLoadEnvConfig_Overrides(t *testing.T) {
 	t.Setenv("DEPLOYER_CONFIG", "")
 	t.Setenv("DEPLOYER_WEBHOOK_SECRET", "topsecret")
@@ -102,6 +117,30 @@ targets:
 	assert.Equal(t, "main", infra.Branch)
 	assert.Equal(t, "/deploy/infra.yaml", infra.ComposeFile)
 	assert.Equal(t, "/tmp/uc.sock", infra.SocketPath)
+	// work_dir defaults to /deploy/work/<name> even without repo_url
+	assert.Equal(t, filepath.Join("/deploy/work", "infra"), infra.WorkDir)
+}
+
+func TestLoadFileConfig_Defaults(t *testing.T) {
+	// A target with no repo_url, compose_file, branch, or work_dir should get sensible defaults.
+	yaml := "targets:\n  - name: app\n    webhook_secret: s3cr3t\n"
+	f, err := os.CreateTemp(t.TempDir(), "config-*.yaml")
+	require.NoError(t, err)
+	_, err = f.WriteString(yaml)
+	require.NoError(t, err)
+	f.Close()
+
+	t.Setenv("DEPLOYER_CONFIG", f.Name())
+
+	cfg, err := loadAppConfig()
+	require.NoError(t, err)
+
+	tgt := cfg.Targets[0]
+	assert.Equal(t, "main", tgt.Branch)
+	assert.Equal(t, "/deploy/compose.yaml", tgt.ComposeFile)
+	assert.Equal(t, filepath.Join("/deploy/work", "app"), tgt.WorkDir)
+	assert.Equal(t, "/run/uncloud/uncloud.sock", tgt.SocketPath)
+	assert.Equal(t, ":8080", cfg.ListenAddr)
 }
 
 func TestLoadFileConfig_Validation(t *testing.T) {
