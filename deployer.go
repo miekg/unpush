@@ -14,11 +14,11 @@ import (
 )
 
 type Deployer struct {
-	cfg   Config
+	cfg   TargetConfig
 	queue chan pushEvent
 }
 
-func newDeployer(cfg Config) *Deployer {
+func newDeployer(cfg TargetConfig) *Deployer {
 	d := &Deployer{
 		cfg:   cfg,
 		queue: make(chan pushEvent, 1),

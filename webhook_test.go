@@ -20,7 +20,7 @@ func sign(body []byte, secret string) string {
 	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }
 
-func newTestDeployer(cfg Config) *Deployer {
+func newTestDeployer(cfg TargetConfig) *Deployer {
 	return &Deployer{
 		cfg:   cfg,
 		queue: make(chan pushEvent, 1),
@@ -144,7 +144,7 @@ func TestHandleWebhook(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := newTestDeployer(Config{
+			d := newTestDeployer(TargetConfig{
 				WebhookSecret: tt.secret,
 				Branch:        "main",
 			})
