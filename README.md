@@ -1,4 +1,4 @@
-# uncloud-deployer
+# unpush
 
 A continuous deployment service for [Uncloud](https://github.com/psviderski/uncloud). It runs as a container inside your cluster, listens for GitHub push webhooks, and deploys your services automatically.
 
@@ -33,17 +33,17 @@ Each target registers a webhook at `/webhook/<name>`. Add as many targets as you
 
 ```yaml
 configs:
-  deployer_config:
+  unpush_config:
     file: ./config.yaml
 
 services:
-  deployer:
-    image: ghcr.io/psviderski/uncloud-deployer:latest
+  unpush:
+    image: ghcr.io/psviderski/unpush:latest
     volumes:
       - /run/uncloud/uncloud.sock:/run/uncloud/uncloud.sock
       - /var/run/docker.sock:/var/run/docker.sock   # required for repo mode builds
     configs:
-      - source: deployer_config
+      - source: unpush_config
         target: /deploy/config.yaml
     ports:
       - target: 8080
@@ -94,7 +94,7 @@ targets:
 ## Building from source
 
 ```bash
-docker build -t uncloud-deployer .
+docker build -t unpush .
 ```
 
 Or build the binary with mise:

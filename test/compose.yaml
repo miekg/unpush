@@ -1,18 +1,19 @@
 configs:
   app_compose:
     file: ./app.yaml
+  unpush_config:
+    file: ./config.yaml
 
 services:
-  deployer:
-    image: uncloud-deployer:latest
+  unpush:
+    image: unpush:latest
     volumes:
       - /run/uncloud/uncloud.sock:/run/uncloud/uncloud.sock
     configs:
       - source: app_compose
         target: /deploy/compose.yaml
-    environment:
-      - DEPLOYER_WEBHOOK_SECRET=testsecret
-      - DEPLOYER_BRANCH=main
+      - source: unpush_config
+        target: /deploy/config.yaml
     ports:
       - target: 8080
         published: 8080

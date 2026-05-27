@@ -7,16 +7,16 @@ golangci-lint = "2.11.2"
 pre-commit = "4.6.0"
 
 [tasks.build]
-description = "Build the deployer binary"
-run = "go build -o deployer ."
+description = "Build the unpush binary"
+run = "go build -o unpush ."
 
 [tasks.run]
-description = "Run the deployer"
+description = "Run unpush"
 run = "go run ."
 
 [tasks."build:image"]
 description = "Build the Docker image"
-run = "docker build -t uncloud-deployer ."
+run = "docker build -t unpush ."
 
 [tasks.lint]
 description = "Run golangci-lint"

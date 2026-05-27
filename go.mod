@@ -1,4 +1,4 @@
-module github.com/psviderski/uncloud-deployer
+module github.com/psviderski/unpush
 
 go 1.26
 

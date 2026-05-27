@@ -1,6 +1,6 @@
-# Design: uncloud-deployer
+# Design: unpush
 
-This document explains the architecture decisions behind `uncloud-deployer` and the options considered during design.
+This document explains the architecture decisions behind `unpush` and the options considered during design.
 
 ## Goal
 
@@ -75,7 +75,7 @@ This remains the right long-term direction if multiple in-cluster services need 
 GitHub push
     │
     ▼
-POST /webhook
+POST /webhook/<name>
     │
     ├── verify HMAC signature
     ├── check event type == "push"
@@ -115,7 +115,7 @@ For this to work, the compose file volume must reflect the latest committed vers
 
 **Option 2: Latest tag with force recreate**
 
-Set `DEPLOYER_FORCE_RECREATE=true`. The deployer forces container recreation on every push, which causes Docker to pull the latest image. Simpler, but loses reproducibility.
+Set `force_recreate: true` in the target config. The deployer forces container recreation on every push, which causes Docker to pull the latest image. Simpler, but loses reproducibility.
 
 ## Webhook concurrency model
 
@@ -127,7 +127,7 @@ The channel between the webhook handler and the deploy loop has capacity 1. This
 
 **Webhook signature verification**
 
-The deployer uses `X-Hub-Signature-256` HMAC-SHA256 verification. Skipping verification (empty `DEPLOYER_WEBHOOK_SECRET`) is allowed but logs a warning. In production, always set the secret.
+The deployer uses `X-Hub-Signature-256` HMAC-SHA256 verification. Skipping verification (empty `webhook_secret`) is allowed but logs a warning. In production, always set the secret.
 
 **Socket access**
 

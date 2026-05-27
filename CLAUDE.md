@@ -1,10 +1,10 @@
-# CLAUDE.md - uncloud-deployer
+# CLAUDE.md - unpush
 
 This document helps AI assistants understand the codebase and contribute effectively.
 
 ## Project overview
 
-`uncloud-deployer` is a continuous deployment service for [Uncloud](https://github.com/psviderski/uncloud). It runs as a container inside an Uncloud cluster and deploys services in response to GitHub push webhooks.
+`unpush` is a continuous deployment service for [Uncloud](https://github.com/psviderski/uncloud). It runs as a container inside an Uncloud cluster and deploys services in response to GitHub push webhooks.
 
 The deployer connects to the Uncloud daemon through its Unix socket (`/run/uncloud/uncloud.sock`), which every node in the cluster exposes. This gives the deployer full cluster access without needing SSH keys or network configuration.
 
