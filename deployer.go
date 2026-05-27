@@ -35,7 +35,7 @@ func (d *Deployer) triggerDeploy(event pushEvent) {
 		if len(commitID) > 8 {
 			commitID = commitID[:8]
 		}
-		slog.Warn("Deploy already queued, dropping incoming event", "commit", commitID)
+		slog.Warn("Deploy already queued, dropping incoming event", "target", d.cfg.Name, "commit", commitID)
 	}
 }
 
@@ -52,7 +52,7 @@ func (d *Deployer) runDeploy(event pushEvent) {
 	}
 
 	start := time.Now()
-	slog.Info("Starting deploy", "commit", commitID)
+	slog.Info("Starting deploy", "target", d.cfg.Name, "commit", commitID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -60,7 +60,7 @@ func (d *Deployer) runDeploy(event pushEvent) {
 	composeFile := d.cfg.ComposeFile
 	if d.cfg.RepoURL != "" {
 		if err := prepareRepo(ctx, d.cfg.WorkDir, d.cfg.RepoURL, d.cfg.RepoToken, event.HeadCommit.ID); err != nil {
-			slog.Error("Failed to prepare repository", "error", err, "commit", commitID)
+			slog.Error("Failed to prepare repository", "target", d.cfg.Name, "error", err, "commit", commitID)
 			return
 		}
 		if !filepath.IsAbs(composeFile) {
@@ -68,25 +68,26 @@ func (d *Deployer) runDeploy(event pushEvent) {
 		}
 	}
 
-	slog.Info("Loading compose file", "commit", commitID, "file", composeFile)
+	slog.Info("Loading compose file", "target", d.cfg.Name, "commit", commitID, "file", composeFile)
 
 	conn := connector.NewUnixConnector(d.cfg.SocketPath)
 	cli, err := client.New(ctx, conn)
 	if err != nil {
-		slog.Error("Failed to connect to uncloud socket", "error", err, "socket", d.cfg.SocketPath)
+		slog.Error("Failed to connect to uncloud socket", "target", d.cfg.Name, "error", err, "socket", d.cfg.SocketPath)
 		return
 	}
 	defer cli.Close()
 
 	project, err := compose.LoadProject(ctx, []string{composeFile}, composecli.WithOsEnv)
 	if err != nil {
-		slog.Error("Failed to load compose file", "error", err, "file", composeFile)
+		slog.Error("Failed to load compose file", "target", d.cfg.Name, "error", err, "file", composeFile)
 		return
 	}
 
 	if d.cfg.RepoURL != "" {
+		slog.Info("Building and pushing images", "target", d.cfg.Name, "commit", commitID)
 		if err := buildAndPush(ctx, project, cli); err != nil {
-			slog.Error("Failed to build and push images", "error", err, "commit", commitID)
+			slog.Error("Failed to build and push images", "target", d.cfg.Name, "error", err, "commit", commitID)
 			return
 		}
 	}
@@ -96,26 +97,26 @@ func (d *Deployer) runDeploy(event pushEvent) {
 	}
 	deployment, err := compose.NewDeploymentWithStrategy(ctx, cli, project, strategy)
 	if err != nil {
-		slog.Error("Failed to create deployment", "error", err)
+		slog.Error("Failed to create deployment", "target", d.cfg.Name, "error", err)
 		return
 	}
 
 	plan, err := deployment.Plan(ctx)
 	if err != nil {
-		slog.Error("Failed to plan deployment", "error", err)
+		slog.Error("Failed to plan deployment", "target", d.cfg.Name, "error", err)
 		return
 	}
 
 	if plan.IsEmpty() {
-		slog.Info("Services are up to date, nothing to deploy", "commit", commitID)
+		slog.Info("Services are up to date, nothing to deploy", "target", d.cfg.Name, "commit", commitID)
 		return
 	}
 
-	slog.Info("Executing deployment plan", "commit", commitID)
+	slog.Info("Executing deployment plan", "target", d.cfg.Name, "commit", commitID)
 	if err := plan.Execute(ctx, cli); err != nil {
-		slog.Error("Deployment failed", "error", err, "duration", time.Since(start))
+		slog.Error("Deployment failed", "target", d.cfg.Name, "error", err, "duration", time.Since(start))
 		return
 	}
 
-	slog.Info("Deployment completed", "commit", commitID, "duration", time.Since(start))
+	slog.Info("Deployment completed", "target", d.cfg.Name, "commit", commitID, "duration", time.Since(start))
 }

@@ -58,7 +58,7 @@ func runGit(ctx context.Context, dir string, args ...string) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	cmd.Stdout = logWriter(slog.LevelDebug)
-	cmd.Stderr = logWriter(slog.LevelWarn)
+	cmd.Stderr = logWriter(slog.LevelDebug)
 	return cmd.Run()
 }
 

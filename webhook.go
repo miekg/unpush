@@ -23,8 +23,12 @@ type pushEvent struct {
 }
 
 func (d *Deployer) handleWebhook(w http.ResponseWriter, r *http.Request) {
+	event := r.Header.Get("X-GitHub-Event")
+	slog.Info("Received webhook request", "target", d.cfg.Name, "event", event, "remote_addr", r.RemoteAddr)
+
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
+		slog.Error("Failed to read webhook body", "target", d.cfg.Name, "error", err)
 		http.Error(w, "failed to read body", http.StatusBadRequest)
 		return
 	}
@@ -32,26 +36,28 @@ func (d *Deployer) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if d.cfg.WebhookSecret != "" {
 		sig := r.Header.Get("X-Hub-Signature-256")
 		if !verifySignature(body, sig, d.cfg.WebhookSecret) {
-			slog.Warn("Webhook signature verification failed", "remote_addr", r.RemoteAddr)
+			slog.Warn("Webhook signature verification failed", "target", d.cfg.Name, "remote_addr", r.RemoteAddr)
 			http.Error(w, "invalid signature", http.StatusUnauthorized)
 			return
 		}
 	}
 
-	event := r.Header.Get("X-GitHub-Event")
 	if event != "push" {
+		slog.Debug("Ignoring non-push event", "target", d.cfg.Name, "event", event)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
 	var push pushEvent
 	if err := json.Unmarshal(body, &push); err != nil {
+		slog.Error("Failed to parse webhook body", "target", d.cfg.Name, "error", err)
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 
 	targetRef := "refs/heads/" + d.cfg.Branch
 	if push.Ref != targetRef {
+		slog.Debug("Ignoring push to non-target branch", "target", d.cfg.Name, "ref", push.Ref, "want", targetRef)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -60,7 +66,8 @@ func (d *Deployer) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if len(commitID) > 8 {
 		commitID = commitID[:8]
 	}
-	slog.Info("Received push event",
+	slog.Info("Accepted push event",
+		"target", d.cfg.Name,
 		"repo", push.Repository.FullName,
 		"branch", d.cfg.Branch,
 		"commit", commitID,

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	composetypes "github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/cli/cli/command"
@@ -35,6 +36,12 @@ func buildAndPush(ctx context.Context, project *composetypes.Project, cli *clien
 		return fmt.Errorf("initialise docker client: %w", err)
 	}
 
+	names := make([]string, len(services))
+	for i, s := range services {
+		names[i] = s.Name
+	}
+	slog.Info("Building images", "services", names)
+
 	composeService := composev2.NewComposeService(dockerCli)
 	if err = composeService.Build(ctx, project, composeapi.BuildOptions{Deps: true}); err != nil {
 		return fmt.Errorf("build images: %w", err)
@@ -51,6 +58,7 @@ func buildAndPush(ctx context.Context, project *composetypes.Project, cli *clien
 		if len(pushOpts.Machines) == 0 {
 			pushOpts.AllMachines = true
 		}
+		slog.Info("Pushing image to cluster", "service", s.Name, "image", s.Image)
 		if err = cli.PushImage(ctx, s.Image, pushOpts); err != nil {
 			return fmt.Errorf("push image %q for service %q: %w", s.Image, s.Name, err)
 		}
