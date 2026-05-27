@@ -17,7 +17,6 @@ type AppConfig struct {
 // TargetConfig holds the configuration for a single deploy target.
 type TargetConfig struct {
 	// Name identifies the target and is used in the webhook path (/webhook/<name>).
-	// Empty in single-target env-var mode, where the path is /webhook.
 	Name          string `yaml:"name"`
 	WebhookSecret string `yaml:"webhook_secret"`
 	Branch        string `yaml:"branch"`
@@ -46,13 +45,14 @@ type fileConfig struct {
 	Targets    []TargetConfig `yaml:"targets"`
 }
 
-// loadAppConfig loads configuration from a YAML file if DEPLOYER_CONFIG is set,
-// otherwise falls back to environment variables.
+// loadAppConfig reads the YAML config file at the path given by DEPLOYER_CONFIG,
+// defaulting to /deploy/config.yaml.
 func loadAppConfig() (AppConfig, error) {
-	if path := os.Getenv("DEPLOYER_CONFIG"); path != "" {
-		return loadFileConfig(path)
+	path := os.Getenv("DEPLOYER_CONFIG")
+	if path == "" {
+		path = "/deploy/config.yaml"
 	}
-	return loadEnvConfig(), nil
+	return loadFileConfig(path)
 }
 
 func loadFileConfig(path string) (AppConfig, error) {
@@ -104,36 +104,4 @@ func loadFileConfig(path string) (AppConfig, error) {
 		ListenAddr: fc.ListenAddr,
 		Targets:    fc.Targets,
 	}, nil
-}
-
-func loadEnvConfig() AppConfig {
-	repoURL := os.Getenv("DEPLOYER_REPO")
-
-	// Default compose file path depends on the mode: when a repo is configured, use a relative path resolved
-	// inside the work dir; otherwise use an absolute path for the baked-in compose file.
-	defaultComposeFile := "/deploy/compose.yaml"
-	if repoURL != "" {
-		defaultComposeFile = "compose.yaml"
-	}
-
-	return AppConfig{
-		ListenAddr: getEnv("DEPLOYER_LISTEN_ADDR", ":8080"),
-		Targets: []TargetConfig{{
-			SocketPath:    getEnv("DEPLOYER_SOCKET_PATH", "/run/uncloud/uncloud.sock"),
-			WebhookSecret: os.Getenv("DEPLOYER_WEBHOOK_SECRET"),
-			ComposeFile:   getEnv("DEPLOYER_COMPOSE_FILE", defaultComposeFile),
-			Branch:        getEnv("DEPLOYER_BRANCH", "main"),
-			ForceRecreate: os.Getenv("DEPLOYER_FORCE_RECREATE") == "true",
-			RepoURL:       repoURL,
-			RepoToken:     os.Getenv("DEPLOYER_REPO_TOKEN"),
-			WorkDir:       getEnv("DEPLOYER_WORK_DIR", "/deploy/work"),
-		}},
-	}
-}
-
-func getEnv(key, defaultVal string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return defaultVal
 }

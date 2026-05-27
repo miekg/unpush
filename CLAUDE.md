@@ -12,7 +12,7 @@ The deployer connects to the Uncloud daemon through its Unix socket (`/run/unclo
 
 ```
 main.go         Entry point. Loads config, registers webhook routes, runs the HTTP server.
-config.go       Loads AppConfig from a YAML file (DEPLOYER_CONFIG) or environment variables.
+config.go       Loads AppConfig from a YAML file (DEPLOYER_CONFIG, default /deploy/config.yaml).
 webhook.go      GitHub webhook handler. Reads body, verifies HMAC, dispatches to deployer.
 deployer.go     Core deploy logic. Connects to socket, loads compose file, plans and executes deploy.
 build.go        Builds services with a build directive and pushes images to cluster machines.
@@ -31,13 +31,9 @@ misc/design.md  Architecture decisions and options considered during design.
 
 ## Configuration
 
-Two modes:
+Configuration is always loaded from a YAML file. `loadAppConfig` reads the path from `DEPLOYER_CONFIG`, defaulting to `/deploy/config.yaml`. `loadFileConfig` parses the file and fills in defaults: `branch` → `main`, `work_dir` → `/deploy/work/<name>`, `compose_file` → `compose.yaml` if `repo_url` is set, `/deploy/compose.yaml` otherwise. It also validates that every target has a unique non-empty name and copies the global `socket_path` into each `TargetConfig`.
 
-**YAML file** (`DEPLOYER_CONFIG` points to a file): supports multiple targets, each registered at `/webhook/<name>`.
-
-**Environment variables** (no `DEPLOYER_CONFIG`): single target, registered at `/webhook` for backward compatibility. `loadEnvConfig` builds a `TargetConfig` from `DEPLOYER_*` env vars.
-
-`loadFileConfig` applies defaults: `branch` → `main`, `work_dir` → `/deploy/work/<name>`, `compose_file` → `compose.yaml` if `repo_url` is set, `/deploy/compose.yaml` otherwise. It also validates that every target has a unique non-empty name and copies `socket_path` from the global config into each `TargetConfig`.
+Each target registers its webhook handler at `/webhook/<name>`.
 
 ## Key dependencies
 
@@ -61,7 +57,7 @@ In repo mode, the deployer also uses these directly (both are transitive depende
 
 ## Deploy flow
 
-1. `webhook.go` receives a POST to `/webhook` (env-var mode) or `/webhook/<name>` (YAML mode).
+1. `webhook.go` receives POST `/webhook/<name>`.
 2. HMAC signature is verified against the target's `WebhookSecret`.
 3. The event is checked: must be a push to the configured branch.
 4. `triggerDeploy` sends the event to the deployer's channel (capacity 1). A second concurrent event is queued. A third is dropped with a warning.
@@ -87,25 +83,29 @@ mise run build:image
 
 ## Testing
 
-Unit tests cover config loading (env vars and YAML), HMAC signature verification, and webhook routing. Run them with:
+Unit tests cover config loading, HMAC signature verification, and webhook routing. Run them with:
 
 ```bash
 go test ./...
 ```
 
-To test the webhook handler manually without a cluster:
+To test the webhook handler manually, start the server with a config file:
 
 ```bash
-DEPLOYER_WEBHOOK_SECRET=test mise run run &
+cat > /tmp/deployer-config.yaml <<'EOF'
+targets:
+  - name: app
+    webhook_secret: test
+    branch: main
+EOF
+DEPLOYER_CONFIG=/tmp/deployer-config.yaml mise run run &
 
-curl -X POST http://localhost:8080/webhook \
+curl -X POST http://localhost:8080/webhook/app \
   -H "X-GitHub-Event: push" \
   -H "X-Hub-Signature-256: sha256=$(echo -n '{"ref":"refs/heads/main","repository":{"full_name":"you/app"},"head_commit":{"id":"abc12345","message":"test"}}' | openssl dgst -sha256 -hmac test | awk '{print $2}')" \
   -H "Content-Type: application/json" \
   -d '{"ref":"refs/heads/main","repository":{"full_name":"you/app"},"head_commit":{"id":"abc12345","message":"test"}}'
 ```
-
-For YAML config mode, use `/webhook/<name>` instead of `/webhook`.
 
 ## Documentation style
 

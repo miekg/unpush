@@ -25,21 +25,12 @@ func main() {
 
 	for _, t := range cfg.Targets {
 		d := newDeployer(t)
-		if t.Name == "" {
-			// Single-target env-var mode: register at /webhook for backward compatibility.
-			if t.WebhookSecret == "" {
-				slog.Warn("DEPLOYER_WEBHOOK_SECRET is not set, webhook signatures will not be verified")
-			}
-			slog.Info("Registered target", "path", "/webhook", "branch", t.Branch, "compose_file", t.ComposeFile)
-			mux.HandleFunc("POST /webhook", d.handleWebhook)
-		} else {
-			if t.WebhookSecret == "" {
-				slog.Warn("Target has no webhook_secret, signatures will not be verified", "target", t.Name)
-			}
-			path := "/webhook/" + t.Name
-			slog.Info("Registered target", "name", t.Name, "path", path, "branch", t.Branch, "compose_file", t.ComposeFile)
-			mux.HandleFunc("POST "+path, d.handleWebhook)
+		if t.WebhookSecret == "" {
+			slog.Warn("Target has no webhook_secret, signatures will not be verified", "target", t.Name)
 		}
+		path := "/webhook/" + t.Name
+		slog.Info("Registered target", "name", t.Name, "path", path, "branch", t.Branch, "compose_file", t.ComposeFile)
+		mux.HandleFunc("POST "+path, d.handleWebhook)
 	}
 
 	mux.HandleFunc("GET /healthz", handleHealthz)
