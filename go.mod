@@ -1,4 +1,4 @@
-module github.com/psviderski/unpush
+module github.com/tonyo/unpush
 
 go 1.26
 
