@@ -30,7 +30,7 @@ targets:
   - name: app
     webhook_secret: <your-webhook-secret>
     repo_url: https://github.com/you/app
-    repo_token: <pat>   # omit for public repos
+    repo_token: <pat> # omit for public repos
 ```
 
 Poll trigger (no webhook needed):
@@ -41,7 +41,7 @@ targets:
   - name: app
     poll_interval: 5m
     repo_url: https://github.com/you/app
-    repo_token: <pat>   # omit for public repos
+    repo_token: <pat> # omit for public repos
 ```
 
 Add as many targets as you need. Webhook targets register at `/webhook/<name>`.
@@ -55,10 +55,10 @@ configs:
 
 services:
   unpush:
-    image: ghcr.io/psviderski/unpush:latest
+    image: ghcr.io/tonyo/unpush:latest
     volumes:
       - /run/uncloud/uncloud.sock:/run/uncloud/uncloud.sock
-      - /var/run/docker.sock:/var/run/docker.sock   # required for repo mode builds
+      - /var/run/docker.sock:/var/run/docker.sock # required for repo mode builds
     configs:
       - source: unpush_config
         target: /deploy/config.yaml
@@ -77,6 +77,7 @@ uc deploy
 **4. Configure the GitHub webhook.** (skip if using poll mode)
 
 In your repository settings, add a webhook:
+
 - Payload URL: `http://<your-machine-ip>:8080/webhook/app`
 - Content type: `application/json`
 - Secret: the `webhook_secret` you set for that target
@@ -84,30 +85,30 @@ In your repository settings, add a webhook:
 
 ## Config file reference
 
-The config file defaults to `/deploy/config.yaml`. Set `DEPLOYER_CONFIG` to use a different path.
+The config file defaults to `/deploy/config.yaml`. Set `DEPLOYER_CONFIG` to use a different path. Set `LOG_LEVEL` to change the log verbosity (default: `info`; options: `debug`, `info`, `warn`, `error`).
 
 ```yaml
-listen_addr: :8080                           # optional
-socket_path: /run/uncloud/uncloud.sock       # optional
+listen_addr: :8080 # optional
+socket_path: /run/uncloud/uncloud.sock # optional
 
 targets:
-  - name: <string>                           # required; used in /webhook/<name>
-    webhook_secret: <string>                 # required for webhook trigger; strongly recommended
-    poll_interval: <duration>                # enables poll trigger, e.g. 5m, 1h; mutually exclusive with webhook_secret
-    branch: main                             # default: main
-    compose_file: compose.yaml               # default: compose.yaml (repo mode) or /deploy/compose.yaml
-    force_recreate: false                    # default: false
-    repo_url: https://github.com/org/repo    # enables repo mode; required for poll trigger
-    repo_token: <pat>                        # for private repos; requires Contents: read
-    work_dir: /deploy/work/<name>            # default: /deploy/work/<name>
+  - name: <string> # required; used in /webhook/<name>
+    webhook_secret: <string> # required for webhook trigger; strongly recommended
+    poll_interval: <duration> # enables poll trigger, e.g. 5m, 1h; mutually exclusive with webhook_secret
+    branch: main # default: main
+    compose_file: compose.yaml # default: compose.yaml (repo mode) or /deploy/compose.yaml
+    force_recreate: false # default: false
+    repo_url: https://github.com/org/repo # enables repo mode; required for poll trigger
+    repo_token: <pat> # for private repos; requires Contents: read
+    work_dir: /deploy/work/<name> # default: /deploy/work/<name>
 ```
 
 ## Endpoints
 
-| Path | Method | Description |
-|---|---|---|
-| `/webhook/<name>` | POST | Webhook receiver for a named target |
-| `/healthz` | GET | Health check, returns `200 ok` |
+| Path              | Method | Description                         |
+| ----------------- | ------ | ----------------------------------- |
+| `/webhook/<name>` | POST   | Webhook receiver for a named target |
+| `/healthz`        | GET    | Health check, returns `200 ok`      |
 
 ## Building from source
 

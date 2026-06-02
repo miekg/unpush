@@ -11,9 +11,17 @@ import (
 )
 
 func main() {
+	logLevel := slog.LevelInfo
+	if v := os.Getenv("LOG_LEVEL"); v != "" {
+		if err := logLevel.UnmarshalText([]byte(v)); err != nil {
+			slog.Error("Invalid LOG_LEVEL", "value", v)
+			os.Exit(1)
+		}
+	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevel,
 	})))
+	slog.Info("Log level set", "level", logLevel)
 
 	cfg, err := loadAppConfig()
 	if err != nil {
