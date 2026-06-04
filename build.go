@@ -3,20 +3,33 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"net"
+	"os"
+	"strconv"
 
 	composetypes "github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/flags"
 	composeapi "github.com/docker/compose/v2/pkg/api"
 	composev2 "github.com/docker/compose/v2/pkg/compose"
+	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/psviderski/uncloud/pkg/api"
 	"github.com/psviderski/uncloud/pkg/client"
 	"github.com/psviderski/uncloud/pkg/client/compose"
 )
 
-// buildAndPush builds images for all services with a build directive and pushes them to cluster machines.
-// The push target for each service is determined by its x-machines extension; if absent, the image is
-// pushed to all machines in the cluster.
+// unregistryPort is the port the embedded unregistry listens on for each cluster machine.
+const unregistryPort = 5000
+
+// buildAndPush builds images for all services with a build directive and pushes them to remote cluster machines.
+// The local machine is skipped because the image was just built by its Docker daemon, so it is already present
+// in the containerd store that the local unregistry serves from.
+//
+// For remote machines the image is pushed directly from this process over WireGuard using plain HTTP, which
+// avoids the proxy-based mechanism in client.PushImage that requires the pushing process and the Docker daemon
+// to share a network namespace.
 //
 // This replicates the logic from github.com/psviderski/uncloud/internal/cli.BuildServices because the
 // internal package is not importable from outside the uncloud module.
@@ -47,21 +60,107 @@ func buildAndPush(ctx context.Context, project *composetypes.Project, cli *clien
 		return fmt.Errorf("build images: %w", err)
 	}
 
+	// Identify the local machine so we can skip pushing to it. The image was just built by its Docker
+	// daemon and is already in the containerd store that the local unregistry serves from.
+	localMachineID := ""
+	if localInfo, lerr := cli.MachineClient.Inspect(ctx, nil); lerr == nil {
+		localMachineID = localInfo.Id
+	} else {
+		slog.Warn("Could not determine local machine ID, will attempt push to all machines", "error", lerr)
+	}
+
 	for _, s := range services {
 		if s.Image == "" {
 			continue
 		}
-		var pushOpts client.PushImageOptions
-		if machines, ok := s.Extensions[compose.MachinesExtensionKey].(compose.MachinesSource); ok {
-			pushOpts.Machines = machines
+
+		var filter *api.MachineFilter
+		if machines, ok := s.Extensions[compose.MachinesExtensionKey].(compose.MachinesSource); ok && len(machines) > 0 {
+			filter = &api.MachineFilter{NamesOrIDs: machines}
 		}
-		if len(pushOpts.Machines) == 0 {
-			pushOpts.AllMachines = true
+		members, err := cli.ListMachines(ctx, filter)
+		if err != nil {
+			return fmt.Errorf("list machines: %w", err)
 		}
-		slog.Info("Pushing image to cluster", "service", s.Name, "image", s.Image)
-		if err = cli.PushImage(ctx, s.Image, pushOpts); err != nil {
-			return fmt.Errorf("push image %q for service %q: %w", s.Image, s.Name, err)
+
+		// Check if there are any remote machines before doing the export.
+		hasRemote := false
+		for _, member := range members {
+			if member.Machine.Id != localMachineID {
+				hasRemote = true
+				break
+			}
 		}
+		if !hasRemote {
+			slog.Info("No remote machines to push to, skipping push", "service", s.Name)
+			continue
+		}
+
+		// Export image once from Docker daemon to a temp file, then push to each remote machine.
+		tmpPath, err := saveImageToTempFile(ctx, dockerCli, s.Image)
+		if err != nil {
+			return fmt.Errorf("export image %q: %w", s.Image, err)
+		}
+		defer os.Remove(tmpPath)
+
+		for _, member := range members {
+			if member.Machine.Id == localMachineID {
+				slog.Info("Skipping push to local machine (image already in containerd)", "service", s.Name, "machine", member.Machine.Name)
+				continue
+			}
+			if member.Machine.Network == nil {
+				slog.Warn("Machine has no network info, skipping push", "machine", member.Machine.Name)
+				continue
+			}
+
+			subnet, err := member.Machine.Network.Subnet.ToPrefix()
+			if err != nil {
+				return fmt.Errorf("parse subnet for machine %q: %w", member.Machine.Name, err)
+			}
+			machineIP := subnet.Masked().Addr().Next()
+			registryAddr := net.JoinHostPort(machineIP.String(), strconv.Itoa(unregistryPort))
+
+			slog.Info("Pushing image to cluster", "service", s.Name, "image", s.Image, "machine", member.Machine.Name)
+			if err := pushImageToRegistry(ctx, tmpPath, s.Image, registryAddr); err != nil {
+				return fmt.Errorf("push image %q for service %q: %w", s.Image, s.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+// saveImageToTempFile exports a Docker image as a tar archive to a temporary file and returns its path.
+// The caller is responsible for deleting the file when done.
+func saveImageToTempFile(ctx context.Context, dockerCli *command.DockerCli, imageName string) (string, error) {
+	reader, err := dockerCli.Client().ImageSave(ctx, []string{imageName})
+	if err != nil {
+		return "", fmt.Errorf("save image: %w", err)
+	}
+	defer reader.Close()
+
+	tmpFile, err := os.CreateTemp("", "unpush-*.tar")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	defer tmpFile.Close()
+
+	if _, err = io.Copy(tmpFile, reader); err != nil {
+		os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("write image tar: %w", err)
+	}
+	return tmpFile.Name(), nil
+}
+
+// pushImageToRegistry pushes an image from a tar archive to an OCI-compatible registry over plain HTTP.
+// The destination reference is constructed as registryAddr/imageName.
+func pushImageToRegistry(ctx context.Context, tarPath, imageName, registryAddr string) error {
+	img, err := crane.Load(tarPath)
+	if err != nil {
+		return fmt.Errorf("load image from tar: %w", err)
+	}
+	destRef := registryAddr + "/" + imageName
+	if err := crane.Push(img, destRef, crane.Insecure, crane.WithContext(ctx)); err != nil {
+		return fmt.Errorf("push to registry: %w", err)
 	}
 	return nil
 }

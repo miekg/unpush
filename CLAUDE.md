@@ -52,8 +52,11 @@ In repo mode, the deployer also uses these directly (both are transitive depende
 |---|---|
 | `github.com/docker/cli/cli/command` | Creates a Docker CLI client for the build step |
 | `github.com/docker/compose/v2/pkg/compose` | Builds images via the Compose Go library |
+| `github.com/google/go-containerregistry/pkg/crane` | Pushes images to remote machine unregistries over plain HTTP |
 
 `internal/cli.BuildServices` in uncloud contains equivalent build logic but is not importable from outside the module. `build.go` replicates the relevant parts. See the TODO comment there for the long-term option.
+
+`client.PushImage` in uncloud is not used for pushing because it relies on a proxy mechanism that requires the pushing process and the Docker daemon to share a network namespace. When unpush runs as a container, the Go process and the Docker daemon are in different network namespaces, so the proxy on `127.0.0.1` is unreachable from the daemon. Instead, `build.go` pushes directly from the Go process to each remote machine's unregistry using crane over plain HTTP. The WireGuard routing that Uncloud sets up allows the container to reach `machineIP:5000` on remote nodes directly.
 
 ## Deploy flow
 
@@ -65,7 +68,7 @@ In repo mode, the deployer also uses these directly (both are transitive depende
 6. `runDeploy` handles the deploy:
    - If `RepoURL` is set: clones or fetches the repository, checks out the exact push commit.
    - Connects to the Uncloud socket and loads the compose file.
-   - If `RepoURL` is set and any services have a `build` directive: builds images locally via Docker and pushes them to all cluster machines.
+   - If `RepoURL` is set and any services have a `build` directive: builds images locally via Docker, then pushes them to each remote cluster machine directly over WireGuard. The local machine is skipped because the image is already in its containerd store.
    - Plans and executes the deployment.
 
 ## Development
