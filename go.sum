@@ -132,8 +132,6 @@ github.com/bugsnag/osext v0.0.0-20130617224835-0dd3f918b21b h1:otBG+dV+YK+Soembj
 github.com/bugsnag/osext v0.0.0-20130617224835-0dd3f918b21b/go.mod h1:obH5gd0BsqsP2LwDJ9aOkm/6J86V6lyAXCoQWGw3K50=
 github.com/bugsnag/panicwrap v0.0.0-20151223152923-e2c28503fcd0 h1:nvj0OLI3YqYXer/kZD8Ri1aaunCxIEsOst1BVJswV0o=
 github.com/bugsnag/panicwrap v0.0.0-20151223152923-e2c28503fcd0/go.mod h1:D/8v3kj0zr8ZAKg1AQ6crr+5VwKN5eIywRkfhyM/+dE=
-github.com/caarlos0/go-version v0.2.2 h1:5r+nlrg4H2wOVwWjqRqRRIRbZ7ytRmjC9xoMIP0a5kQ=
-github.com/caarlos0/go-version v0.2.2/go.mod h1:X+rI5VAtJDpcjCjeEIXpxGa5+rTcgur1FK66wS0/944=
 github.com/caddyserver/caddy/v2 v2.8.4 h1:q3pe0wpBj1OcHFZ3n/1nl4V4bxBrYoSoab7rL9BMYNk=
 github.com/caddyserver/caddy/v2 v2.8.4/go.mod h1:vmDAHp3d05JIvuhc24LmnxVlsZmWnUwbP5WMjzcMPWw=
 github.com/caddyserver/certmagic v0.21.4 h1:e7VobB8rffHv8ZZpSiZtEwnLDHUwLVYLWzWSa1FfKI0=
@@ -767,8 +765,8 @@ github.com/prometheus/procfs v0.0.2/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsT
 github.com/prometheus/procfs v0.0.3/go.mod h1:4A/X28fw3Fc593LaREMrKMqOKvUAntwMDaekg4FpcdQ=
 github.com/prometheus/procfs v0.15.1 h1:YagwOFzUgYfKKHX6Dr+sHT7km/hxC76UB0learggepc=
 github.com/prometheus/procfs v0.15.1/go.mod h1:fB45yRUv8NstnjriLhBQLuOUt+WW4BsoGhij/e3PBqk=
-github.com/psviderski/uncloud v0.19.1-0.20260526000712-9424daff2829 h1:040o4hQ7ot29qJ2bXBB7ZQ3CjaHJVTbN53Q01+t9slU=
-github.com/psviderski/uncloud v0.19.1-0.20260526000712-9424daff2829/go.mod h1:jQOuhQ1kMKPIoY3UffN3rNnK0ddsRn9IT3KH3eA0FW8=
+github.com/psviderski/uncloud v0.19.0 h1:BUd4Z0AX7BV/NKTrMkY/lj82I9vw9qqRoEIx8KJwSPs=
+github.com/psviderski/uncloud v0.19.0/go.mod h1:s09aqjjI1Y39VsA/mo3YeB+53MjLnUY9a0rZYh3b3eo=
 github.com/psviderski/unregistry v0.4.1 h1:KedQTjyj8hHbzygK9uw5YS10amMZ5cjSYHqSjUUBhoE=
 github.com/psviderski/unregistry v0.4.1/go.mod h1:DXLnzrskO5NuRlzZhpbyo1E6KpirnctUvq6WtCGkpUQ=
 github.com/quic-go/qpack v0.5.1 h1:giqksBPnT/HDtZ6VhtFKgoLOWmlyo9Ei6u9PqzIMbhI=

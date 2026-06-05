@@ -6,7 +6,7 @@ require (
 	github.com/compose-spec/compose-go/v2 v2.9.0
 	github.com/docker/cli v28.5.0+incompatible
 	github.com/docker/compose/v2 v2.40.0
-	github.com/psviderski/uncloud v0.19.1-0.20260526000712-9424daff2829
+	github.com/psviderski/uncloud v0.19.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -49,7 +49,6 @@ require (
 	github.com/aws/smithy-go v1.20.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/buger/goterm v1.0.4 // indirect
-	github.com/caarlos0/go-version v0.2.2 // indirect
 	github.com/caddyserver/caddy/v2 v2.8.4 // indirect
 	github.com/caddyserver/certmagic v0.21.4 // indirect
 	github.com/caddyserver/zerossl v0.1.3 // indirect
