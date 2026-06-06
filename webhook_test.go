@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,9 +21,14 @@ func sign(body []byte, secret string) string {
 	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }
 
-func newTestDeployer(cfg TargetConfig) *Deployer {
+func newTestDeployer(t *testing.T, cfg TargetConfig) *Deployer {
+	t.Helper()
+	db, err := openState(filepath.Join(t.TempDir(), "state.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
 	return &Deployer{
 		cfg:   cfg,
+		db:    db,
 		queue: make(chan pushEvent, 1),
 	}
 }
@@ -144,7 +150,7 @@ func TestHandleWebhook(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := newTestDeployer(TargetConfig{
+			d := newTestDeployer(t, TargetConfig{
 				WebhookSecret: tt.secret,
 				Branch:        "main",
 			})
