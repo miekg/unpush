@@ -48,7 +48,8 @@ func main() {
 			interval, _ := time.ParseDuration(t.PollInterval) // already validated by loadFileConfig
 			slog.Info("Registered poll target", "name", t.Name, "interval", interval, "branch", t.Branch, "compose_file", t.ComposeFile)
 			go d.startPoller(ctx)
-		} else {
+		}
+		if *t.EnableWebhook {
 			if t.WebhookSecret == "" {
 				slog.Warn("Target has no webhook_secret, signatures will not be verified", "target", t.Name)
 			}

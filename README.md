@@ -12,6 +12,8 @@ There are two ways to trigger a deploy:
 
 **Poll** — set `poll_interval` on a target and unpush checks the remote branch HEAD via `git ls-remote`, starting immediately when unpush starts and then on the configured interval. When a new commit is detected it triggers a deploy. If the previous deploy failed, it retries on the next check. Use this when you can't expose a public webhook endpoint.
 
+Both triggers can be active on the same target at the same time. Set `enable_webhook: false` to opt out of the webhook endpoint when you only want poll mode.
+
 There are two deployment modes, which can be combined with either trigger:
 
 **Baked-in compose file** — you supply a compose file in the deployer config. On each deploy unpush applies that file as-is. Use this when your CI pipeline updates the compose file (for example, by bumping the image tag) before pushing.
@@ -95,7 +97,8 @@ state_db: /deploy/state.db                  # optional; SQLite file recording al
 targets:
   - name: <string>                           # required; used in /webhook/<name>
     webhook_secret: <string>                 # required for webhook trigger; strongly recommended
-    poll_interval: <duration>                # enables poll trigger, e.g. 5m, 1h; mutually exclusive with webhook_secret
+    poll_interval: <duration>                # enables poll trigger, e.g. 5m, 1h
+    enable_webhook: true                    # default: true; set false to disable /webhook/<name> (requires poll_interval)
     branch: main                             # default: main
     compose_file: compose.yaml               # default: compose.yaml (repo mode) or /deploy/compose.yaml
     force_recreate: false                    # default: false

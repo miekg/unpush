@@ -113,9 +113,9 @@ func TestLoadFileConfig_Validation(t *testing.T) {
 			wantErr: `duplicate target name "app"`,
 		},
 		{
-			name:    "poll_interval and webhook_secret mutually exclusive",
-			yaml:    "targets:\n  - name: app\n    webhook_secret: s3cr3t\n    poll_interval: 5m\n    repo_url: https://github.com/org/app\n",
-			wantErr: `webhook_secret and poll_interval are mutually exclusive`,
+			name:    "enable_webhook false without poll_interval",
+			yaml:    "targets:\n  - name: app\n    enable_webhook: false\n",
+			wantErr: `enable_webhook: false requires poll_interval`,
 		},
 		{
 			name:    "poll_interval requires repo_url",

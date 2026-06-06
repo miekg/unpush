@@ -36,10 +36,12 @@ type TargetConfig struct {
 	RepoToken string `yaml:"repo_token"`
 	// WorkDir is the local directory where the repository is cloned when RepoURL is set.
 	WorkDir string `yaml:"work_dir"`
-	// PollInterval enables cron pull mode: the deployer polls the remote branch HEAD at this interval
-	// and triggers a deploy when a new commit is detected. Mutually exclusive with WebhookSecret.
-	// Requires RepoURL. Uses Go duration format, e.g. "5m", "1h".
+	// PollInterval enables poll mode: the deployer checks the remote branch HEAD at this interval and
+	// triggers a deploy when a new commit is detected. Requires RepoURL. Uses Go duration format, e.g. "5m", "1h".
 	PollInterval string `yaml:"poll_interval"`
+	// EnableWebhook controls whether the /webhook/<name> HTTP endpoint is registered for this target.
+	// Defaults to true. Set to false to disable it (requires poll_interval to be set).
+	EnableWebhook *bool `yaml:"enable_webhook"`
 	// SocketPath is the path to the Uncloud daemon Unix socket. Inherited from global config; not set
 	// per-target in YAML.
 	SocketPath string `yaml:"-"`
@@ -99,8 +101,12 @@ func loadFileConfig(path string) (AppConfig, error) {
 		}
 		seen[t.Name] = true
 
-		if t.WebhookSecret != "" && t.PollInterval != "" {
-			return AppConfig{}, fmt.Errorf("target %q: webhook_secret and poll_interval are mutually exclusive", t.Name)
+		if t.EnableWebhook == nil {
+			b := true
+			t.EnableWebhook = &b
+		}
+		if !*t.EnableWebhook && t.PollInterval == "" {
+			return AppConfig{}, fmt.Errorf("target %q: enable_webhook: false requires poll_interval (target would have no trigger)", t.Name)
 		}
 		if t.PollInterval != "" && t.RepoURL == "" {
 			return AppConfig{}, fmt.Errorf("target %q: poll_interval requires repo_url", t.Name)
