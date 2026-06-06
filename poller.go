@@ -60,12 +60,12 @@ func (d *Deployer) startPoller(ctx context.Context) {
 		slog.Warn("Failed to read last deploy from state DB, falling back to git HEAD", "target", d.cfg.Name, "error", err)
 	} else if ok {
 		lastCommit = dbCommit
-		slog.Info("Poller seeded from state DB", "target", d.cfg.Name, "commit", lastCommit[:min(len(lastCommit), 8)])
+		slog.Info("Poller seeded from state DB", "target", d.cfg.Name, "commit", shortCommit(lastCommit))
 	}
 	if lastCommit == "" {
 		lastCommit = localHEAD(d.cfg.WorkDir)
 		if lastCommit != "" {
-			slog.Info("Poller seeded from existing checkout", "target", d.cfg.Name, "commit", lastCommit[:min(len(lastCommit), 8)])
+			slog.Info("Poller seeded from existing checkout", "target", d.cfg.Name, "commit", shortCommit(lastCommit))
 		} else {
 			slog.Info("Poller starting fresh, no existing checkout", "target", d.cfg.Name)
 		}
@@ -98,24 +98,18 @@ func (d *Deployer) poll(ctx context.Context, lastCommit *string) {
 		if dbCommit, succeeded, ok, err := lastDeploy(d.db, d.cfg.Name); err != nil {
 			slog.Warn("Failed to read last deploy from state DB", "target", d.cfg.Name, "error", err)
 		} else if ok && dbCommit == sha && !succeeded {
-			slog.Info("Last deploy failed, retrying", "target", d.cfg.Name, "commit", sha[:min(len(sha), 8)])
-			d.triggerDeploy(pushEvent{HeadCommit: struct {
-				ID      string `json:"id"`
-				Message string `json:"message"`
-			}{ID: sha}})
+			slog.Info("Last deploy failed, retrying", "target", d.cfg.Name, "commit", shortCommit(sha))
+			d.triggerDeploy(pushEvent{HeadCommit: commitInfo{ID: sha}})
 		} else {
-			slog.Debug("No new commit", "target", d.cfg.Name, "commit", sha[:min(len(sha), 8)])
+			slog.Debug("No new commit", "target", d.cfg.Name, "commit", shortCommit(sha))
 		}
 		return
 	}
 
 	slog.Info("New commit detected, triggering deploy", "target", d.cfg.Name,
-		"old", (*lastCommit)[:min(len(*lastCommit), 8)],
-		"new", sha[:min(len(sha), 8)],
+		"old", shortCommit(*lastCommit),
+		"new", shortCommit(sha),
 	)
 	*lastCommit = sha
-	d.triggerDeploy(pushEvent{HeadCommit: struct {
-		ID      string `json:"id"`
-		Message string `json:"message"`
-	}{ID: sha}})
+	d.triggerDeploy(pushEvent{HeadCommit: commitInfo{ID: sha}})
 }

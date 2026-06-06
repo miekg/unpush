@@ -34,11 +34,7 @@ func (d *Deployer) triggerDeploy(event pushEvent) {
 	select {
 	case d.queue <- event:
 	default:
-		commitID := event.HeadCommit.ID
-		if len(commitID) > 8 {
-			commitID = commitID[:8]
-		}
-		slog.Warn("Deploy already queued, dropping incoming event", "target", d.cfg.Name, "commit", commitID)
+		slog.Warn("Deploy already queued, dropping incoming event", "target", d.cfg.Name, "commit", shortCommit(event.HeadCommit.ID))
 	}
 }
 
@@ -50,10 +46,7 @@ func (d *Deployer) deployLoop() {
 
 func (d *Deployer) runDeploy(event pushEvent) {
 	commitID := event.HeadCommit.ID
-	shortID := commitID
-	if len(shortID) > 8 {
-		shortID = shortID[:8]
-	}
+	shortID := shortCommit(commitID)
 
 	start := time.Now()
 	succeeded := false

@@ -101,7 +101,6 @@ func buildAndPush(ctx context.Context, project *composetypes.Project, cli *clien
 		if err != nil {
 			return fmt.Errorf("export image %q: %w", s.Image, err)
 		}
-		defer os.Remove(tmpPath)
 
 		for _, member := range members {
 			if member.Machine.Id == localMachineID {
@@ -122,9 +121,11 @@ func buildAndPush(ctx context.Context, project *composetypes.Project, cli *clien
 
 			slog.Info("Pushing image to cluster", "service", s.Name, "image", s.Image, "machine", member.Machine.Name)
 			if err := pushImageToRegistry(ctx, tmpPath, s.Image, registryAddr); err != nil {
+				os.Remove(tmpPath)
 				return fmt.Errorf("push image %q for service %q: %w", s.Image, s.Name, err)
 			}
 		}
+		os.Remove(tmpPath)
 	}
 	return nil
 }

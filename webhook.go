@@ -11,15 +11,24 @@ import (
 	"strings"
 )
 
+type commitInfo struct {
+	ID      string `json:"id"`
+	Message string `json:"message"`
+}
+
 type pushEvent struct {
 	Ref        string `json:"ref"`
 	Repository struct {
 		FullName string `json:"full_name"`
 	} `json:"repository"`
-	HeadCommit struct {
-		ID      string `json:"id"`
-		Message string `json:"message"`
-	} `json:"head_commit"`
+	HeadCommit commitInfo `json:"head_commit"`
+}
+
+func shortCommit(id string) string {
+	if len(id) > 8 {
+		return id[:8]
+	}
+	return id
 }
 
 func (d *Deployer) handleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -62,15 +71,11 @@ func (d *Deployer) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	commitID := push.HeadCommit.ID
-	if len(commitID) > 8 {
-		commitID = commitID[:8]
-	}
 	slog.Info("Accepted push event",
 		"target", d.cfg.Name,
 		"repo", push.Repository.FullName,
 		"branch", d.cfg.Branch,
-		"commit", commitID,
+		"commit", shortCommit(push.HeadCommit.ID),
 		"message", push.HeadCommit.Message,
 	)
 

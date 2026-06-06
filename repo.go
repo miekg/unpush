@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -47,7 +48,7 @@ func prepareRepo(ctx context.Context, workDir, repoURL, token, commit string) er
 		}
 	}
 
-	slog.Info("Checking out commit", "commit", commit[:min(len(commit), 8)])
+	slog.Info("Checking out commit", "commit", shortCommit(commit))
 	if err := runGit(ctx, workDir, "checkout", "--force", commit); err != nil {
 		return fmt.Errorf("checkout %s: %w", commit, err)
 	}
@@ -75,21 +76,14 @@ func logWriter(level slog.Level) io.Writer {
 func (w *lineWriter) Write(p []byte) (int, error) {
 	w.buf = append(w.buf, p...)
 	for {
-		idx := -1
-		for i, b := range w.buf {
-			if b == '\n' {
-				idx = i
-				break
-			}
-		}
+		idx := bytes.IndexByte(w.buf, '\n')
 		if idx < 0 {
 			break
 		}
-		line := string(w.buf[:idx])
-		w.buf = w.buf[idx+1:]
-		if line != "" {
+		if line := string(w.buf[:idx]); line != "" {
 			slog.Log(context.Background(), w.level, line, "source", "git")
 		}
+		w.buf = w.buf[idx+1:]
 	}
 	return len(p), nil
 }
