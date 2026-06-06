@@ -71,6 +71,8 @@ func (d *Deployer) startPoller(ctx context.Context) {
 		}
 	}
 
+	d.poll(ctx, &lastCommit)
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
