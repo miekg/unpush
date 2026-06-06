@@ -53,11 +53,22 @@ func localHEAD(workDir string) string {
 func (d *Deployer) startPoller(ctx context.Context) {
 	interval, _ := time.ParseDuration(d.cfg.PollInterval) // already validated by loadFileConfig
 
-	lastCommit := localHEAD(d.cfg.WorkDir)
-	if lastCommit != "" {
-		slog.Info("Poller seeded from existing checkout", "target", d.cfg.Name, "commit", lastCommit[:min(len(lastCommit), 8)])
-	} else {
-		slog.Info("Poller starting fresh, no existing checkout", "target", d.cfg.Name)
+	// Seed lastCommit from the state DB first (authoritative record of what was last attempted),
+	// falling back to the git checkout if no DB record exists.
+	lastCommit := ""
+	if dbCommit, _, ok, err := lastDeploy(d.db, d.cfg.Name); err != nil {
+		slog.Warn("Failed to read last deploy from state DB, falling back to git HEAD", "target", d.cfg.Name, "error", err)
+	} else if ok {
+		lastCommit = dbCommit
+		slog.Info("Poller seeded from state DB", "target", d.cfg.Name, "commit", lastCommit[:min(len(lastCommit), 8)])
+	}
+	if lastCommit == "" {
+		lastCommit = localHEAD(d.cfg.WorkDir)
+		if lastCommit != "" {
+			slog.Info("Poller seeded from existing checkout", "target", d.cfg.Name, "commit", lastCommit[:min(len(lastCommit), 8)])
+		} else {
+			slog.Info("Poller starting fresh, no existing checkout", "target", d.cfg.Name)
+		}
 	}
 
 	ticker := time.NewTicker(interval)
@@ -81,7 +92,18 @@ func (d *Deployer) poll(ctx context.Context, lastCommit *string) {
 	}
 
 	if sha == *lastCommit {
-		slog.Debug("No new commit", "target", d.cfg.Name, "commit", sha[:min(len(sha), 8)])
+		// No new commit. Check if the last deploy failed and retry if so.
+		if dbCommit, succeeded, ok, err := lastDeploy(d.db, d.cfg.Name); err != nil {
+			slog.Warn("Failed to read last deploy from state DB", "target", d.cfg.Name, "error", err)
+		} else if ok && dbCommit == sha && !succeeded {
+			slog.Info("Last deploy failed, retrying", "target", d.cfg.Name, "commit", sha[:min(len(sha), 8)])
+			d.triggerDeploy(pushEvent{HeadCommit: struct {
+				ID      string `json:"id"`
+				Message string `json:"message"`
+			}{ID: sha}})
+		} else {
+			slog.Debug("No new commit", "target", d.cfg.Name, "commit", sha[:min(len(sha), 8)])
+		}
 		return
 	}
 

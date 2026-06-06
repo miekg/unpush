@@ -12,6 +12,7 @@ import (
 // AppConfig is the top-level application configuration.
 type AppConfig struct {
 	ListenAddr string
+	StateDB    string
 	Targets    []TargetConfig
 }
 
@@ -47,6 +48,7 @@ type TargetConfig struct {
 type fileConfig struct {
 	ListenAddr string         `yaml:"listen_addr"`
 	SocketPath string         `yaml:"socket_path"`
+	StateDB    string         `yaml:"state_db"`
 	Targets    []TargetConfig `yaml:"targets"`
 }
 
@@ -76,6 +78,9 @@ func loadFileConfig(path string) (AppConfig, error) {
 	}
 	if fc.SocketPath == "" {
 		fc.SocketPath = "/run/uncloud/uncloud.sock"
+	}
+	if fc.StateDB == "" {
+		fc.StateDB = "/deploy/state.db"
 	}
 
 	seen := make(map[string]bool)
@@ -119,6 +124,7 @@ func loadFileConfig(path string) (AppConfig, error) {
 
 	return AppConfig{
 		ListenAddr: fc.ListenAddr,
+		StateDB:    fc.StateDB,
 		Targets:    fc.Targets,
 	}, nil
 }

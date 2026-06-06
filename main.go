@@ -29,13 +29,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	db, err := openState(cfg.StateDB)
+	if err != nil {
+		slog.Error("Failed to open state database", "error", err, "path", cfg.StateDB)
+		os.Exit(1)
+	}
+	defer db.Close()
+	slog.Info("State database opened", "path", cfg.StateDB)
+
 	mux := http.NewServeMux()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	for _, t := range cfg.Targets {
-		d := newDeployer(t)
+		d := newDeployer(t, db)
 		if t.PollInterval != "" {
 			interval, _ := time.ParseDuration(t.PollInterval) // already validated by loadFileConfig
 			slog.Info("Registered poll target", "name", t.Name, "interval", interval, "branch", t.Branch, "compose_file", t.ComposeFile)
