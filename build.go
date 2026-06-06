@@ -92,7 +92,7 @@ func buildAndPush(ctx context.Context, project *composetypes.Project, cli *clien
 			}
 		}
 		if !hasRemote {
-			slog.Info("No remote machines to push to, skipping push", "service", s.Name)
+			slog.Info("Image already on all machines (single-node cluster), skipping push", "service", s.Name)
 			continue
 		}
 
