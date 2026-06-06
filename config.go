@@ -86,6 +86,8 @@ func loadFileConfig(path string) (AppConfig, error) {
 		fc.StateDB = "/deploy/state.db"
 	}
 
+	globalRepoToken := os.Getenv("DEPLOYER_REPO_TOKEN")
+
 	seen := make(map[string]bool)
 	for i := range fc.Targets {
 		t := &fc.Targets[i]
@@ -123,6 +125,9 @@ func loadFileConfig(path string) (AppConfig, error) {
 			}
 		}
 		t.SocketPath = fc.SocketPath
+		if t.RepoToken == "" {
+			t.RepoToken = globalRepoToken
+		}
 	}
 
 	return AppConfig{
