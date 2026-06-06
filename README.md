@@ -85,7 +85,7 @@ In your repository settings, add a webhook:
 
 ## Config file reference
 
-The config file defaults to `/deploy/config.yaml`. Set `DEPLOYER_CONFIG` to use a different path. Set `LOG_LEVEL` to change the log verbosity (default: `info`; options: `debug`, `info`, `warn`, `error`).
+The config file defaults to `/deploy/config.yaml`. Set `DEPLOYER_CONFIG` to use a different path. Set `DEPLOYER_STATE_DB` to override the state database path. Set `LOG_LEVEL` to change the log verbosity (default: `info`; options: `debug`, `info`, `warn`, `error`).
 
 ```yaml
 listen_addr: :8080                           # optional

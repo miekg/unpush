@@ -80,7 +80,9 @@ func loadFileConfig(path string) (AppConfig, error) {
 	if fc.SocketPath == "" {
 		fc.SocketPath = "/run/uncloud/uncloud.sock"
 	}
-	if fc.StateDB == "" {
+	if v := os.Getenv("DEPLOYER_STATE_DB"); v != "" {
+		fc.StateDB = v
+	} else if fc.StateDB == "" {
 		fc.StateDB = "/deploy/state.db"
 	}
 
