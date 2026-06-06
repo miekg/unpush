@@ -10,7 +10,7 @@ There are two ways to trigger a deploy:
 
 **Webhook** — GitHub sends a push event to unpush. unpush verifies the HMAC signature and triggers a deploy. Use this when your repository is reachable from the internet and you want immediate deploys.
 
-**Poll** — set `poll_interval` on a target and unpush periodically checks the remote branch HEAD via `git ls-remote`. When a new commit is detected it triggers a deploy. Use this when you can't expose a public webhook endpoint.
+**Poll** — set `poll_interval` on a target and unpush checks the remote branch HEAD via `git ls-remote`, starting immediately when unpush starts and then on the configured interval. When a new commit is detected it triggers a deploy. If the previous deploy failed, it retries on the next check. Use this when you can't expose a public webhook endpoint.
 
 There are two deployment modes, which can be combined with either trigger:
 
@@ -88,19 +88,20 @@ In your repository settings, add a webhook:
 The config file defaults to `/deploy/config.yaml`. Set `DEPLOYER_CONFIG` to use a different path. Set `LOG_LEVEL` to change the log verbosity (default: `info`; options: `debug`, `info`, `warn`, `error`).
 
 ```yaml
-listen_addr: :8080 # optional
-socket_path: /run/uncloud/uncloud.sock # optional
+listen_addr: :8080                           # optional
+socket_path: /run/uncloud/uncloud.sock       # optional
+state_db: /deploy/state.db                  # optional; SQLite file recording all deploy attempts
 
 targets:
-  - name: <string> # required; used in /webhook/<name>
-    webhook_secret: <string> # required for webhook trigger; strongly recommended
-    poll_interval: <duration> # enables poll trigger, e.g. 5m, 1h; mutually exclusive with webhook_secret
-    branch: main # default: main
-    compose_file: compose.yaml # default: compose.yaml (repo mode) or /deploy/compose.yaml
-    force_recreate: false # default: false
-    repo_url: https://github.com/org/repo # enables repo mode; required for poll trigger
-    repo_token: <pat> # for private repos; requires Contents: read
-    work_dir: /deploy/work/<name> # default: /deploy/work/<name>
+  - name: <string>                           # required; used in /webhook/<name>
+    webhook_secret: <string>                 # required for webhook trigger; strongly recommended
+    poll_interval: <duration>                # enables poll trigger, e.g. 5m, 1h; mutually exclusive with webhook_secret
+    branch: main                             # default: main
+    compose_file: compose.yaml               # default: compose.yaml (repo mode) or /deploy/compose.yaml
+    force_recreate: false                    # default: false
+    repo_url: https://github.com/org/repo    # enables repo mode; required for poll trigger
+    repo_token: <pat>                        # for private repos; requires Contents: read
+    work_dir: /deploy/work/<name>            # default: /deploy/work/<name>
 ```
 
 ## Endpoints

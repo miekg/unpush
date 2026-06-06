@@ -11,12 +11,14 @@ The deployer connects to the Uncloud daemon through its Unix socket (`/run/unclo
 ## Repository structure
 
 ```
-main.go         Entry point. Loads config, registers webhook routes, runs the HTTP server.
+main.go         Entry point. Loads config, opens state DB, registers webhook routes, runs the HTTP server.
 config.go       Loads AppConfig from a YAML file (DEPLOYER_CONFIG, default /deploy/config.yaml).
 webhook.go      GitHub webhook handler. Reads body, verifies HMAC, dispatches to deployer.
 deployer.go     Core deploy logic. Connects to socket, loads compose file, plans and executes deploy.
 build.go        Builds services with a build directive and pushes images to cluster machines.
 repo.go         Clones or fetches the repository at the push commit (repo mode only).
+state.go        SQLite state database. Records every deploy attempt and outcome per target.
+poller.go       Poll trigger. Checks remote HEAD on an interval and retries failed deploys.
 Dockerfile      Multi-stage build. Build context is the deployer directory.
 compose.yaml    Reference compose file for deploying the deployer itself into Uncloud.
 mise.toml       Build tooling. Go 1.26.1 via mise. Tasks: build, run, build:image.
@@ -25,13 +27,15 @@ misc/design.md  Architecture decisions and options considered during design.
 
 ## Key types
 
-`AppConfig` — top-level config with `ListenAddr` and `Targets []TargetConfig`.
+`AppConfig` — top-level config with `ListenAddr`, `StateDB`, and `Targets []TargetConfig`.
 
-`TargetConfig` — per-target settings: `Name`, `WebhookSecret`, `Branch`, `ComposeFile`, `ForceRecreate`, `RepoURL`, `RepoToken`, `WorkDir`, `SocketPath`. Each `Deployer` holds one `TargetConfig`.
+`TargetConfig` — per-target settings: `Name`, `WebhookSecret`, `Branch`, `ComposeFile`, `ForceRecreate`, `RepoURL`, `RepoToken`, `WorkDir`, `PollInterval`, `SocketPath`. Each `Deployer` holds one `TargetConfig`.
+
+`Deployer` — holds a `TargetConfig`, a shared `*sql.DB`, and a buffered channel queue (capacity 1).
 
 ## Configuration
 
-Configuration is always loaded from a YAML file. `loadAppConfig` reads the path from `DEPLOYER_CONFIG`, defaulting to `/deploy/config.yaml`. `loadFileConfig` parses the file and fills in defaults: `branch` → `main`, `work_dir` → `/deploy/work/<name>`, `compose_file` → `compose.yaml` if `repo_url` is set, `/deploy/compose.yaml` otherwise. It also validates that every target has a unique non-empty name and copies the global `socket_path` into each `TargetConfig`.
+Configuration is always loaded from a YAML file. `loadAppConfig` reads the path from `DEPLOYER_CONFIG`, defaulting to `/deploy/config.yaml`. `loadFileConfig` parses the file and fills in defaults: `branch` → `main`, `work_dir` → `/deploy/work/<name>`, `compose_file` → `compose.yaml` if `repo_url` is set, `/deploy/compose.yaml` otherwise, `state_db` → `/deploy/state.db`. It also validates that every target has a unique non-empty name and copies the global `socket_path` into each `TargetConfig`.
 
 Each target registers its webhook handler at `/webhook/<name>`.
 
@@ -53,6 +57,7 @@ In repo mode, the deployer also uses these directly (both are transitive depende
 | `github.com/docker/cli/cli/command` | Creates a Docker CLI client for the build step |
 | `github.com/docker/compose/v2/pkg/compose` | Builds images via the Compose Go library |
 | `github.com/google/go-containerregistry/pkg/crane` | Pushes images to remote machine unregistries over plain HTTP |
+| `modernc.org/sqlite` | Pure-Go SQLite driver (no cgo) for the deploy state database |
 
 `internal/cli.BuildServices` in uncloud contains equivalent build logic but is not importable from outside the module. `build.go` replicates the relevant parts. See the TODO comment there for the long-term option.
 
@@ -60,16 +65,24 @@ In repo mode, the deployer also uses these directly (both are transitive depende
 
 ## Deploy flow
 
+**Webhook trigger:**
 1. `webhook.go` receives POST `/webhook/<name>`.
 2. HMAC signature is verified against the target's `WebhookSecret`.
 3. The event is checked: must be a push to the configured branch.
 4. `triggerDeploy` sends the event to the deployer's channel (capacity 1). A second concurrent event is queued. A third is dropped with a warning.
 5. `deployLoop` runs in a goroutine and processes events one at a time.
-6. `runDeploy` handles the deploy:
-   - If `RepoURL` is set: clones or fetches the repository, checks out the exact push commit.
-   - Connects to the Uncloud socket and loads the compose file.
-   - If `RepoURL` is set and any services have a `build` directive: builds images locally via Docker, then pushes them to each remote cluster machine directly over WireGuard. The local machine is skipped because the image is already in its containerd store.
-   - Plans and executes the deployment.
+
+**Poll trigger:**
+1. `startPoller` runs in a goroutine. It seeds `lastCommit` from the state DB (most recent deploy record for that target) and falls back to the local git HEAD if no record exists.
+2. It calls `poll` immediately on startup, then on each interval tick.
+3. `poll` fetches the remote HEAD via `git ls-remote`. If the commit changed, it calls `triggerDeploy`. If the commit is the same but the last deploy record for that commit shows failure, it retries by calling `triggerDeploy` again.
+
+**Deploy execution (`runDeploy`):**
+1. If `RepoURL` is set: clones or fetches the repository, checks out the exact push commit.
+2. Connects to the Uncloud socket and loads the compose file.
+3. If `RepoURL` is set and any services have a `build` directive: builds images locally via Docker, then pushes them to each remote cluster machine directly over WireGuard. The local machine is skipped because the image is already in its containerd store.
+4. Plans and executes the deployment.
+5. On completion (success or any failure): writes a row to the `deploys` table in the state DB with `succeeded = true/false`.
 
 ## Development
 

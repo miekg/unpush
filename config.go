@@ -12,8 +12,9 @@ import (
 // AppConfig is the top-level application configuration.
 type AppConfig struct {
 	ListenAddr string
-	StateDB    string
-	Targets    []TargetConfig
+	// StateDB is the path to the SQLite database that records every deploy attempt and its outcome.
+	StateDB string
+	Targets []TargetConfig
 }
 
 // TargetConfig holds the configuration for a single deploy target.
