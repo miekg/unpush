@@ -46,7 +46,7 @@ targets:
     repo_token: <pat> # omit for public repos
 ```
 
-Add as many targets as you need. Webhook targets register at `/webhook/<name>`.
+Add as many targets as you need. All targets register a `/webhook/<name>` endpoint by default. Set `enable_webhook: false` to opt out (only makes sense when `poll_interval` is also set).
 
 **2. Add the deployer to your cluster compose file.**
 
@@ -76,7 +76,7 @@ services:
 uc deploy
 ```
 
-**4. Configure the GitHub webhook.** (skip if using poll mode)
+**4. Configure the GitHub webhook.** (skip if using `enable_webhook: false`)
 
 In your repository settings, add a webhook:
 
@@ -98,7 +98,7 @@ targets:
   - name: <string>                           # required; used in /webhook/<name>
     webhook_secret: <string>                 # required for webhook trigger; strongly recommended
     poll_interval: <duration>                # enables poll trigger, e.g. 5m, 1h
-    enable_webhook: true                    # default: true; set false to disable /webhook/<name> (requires poll_interval)
+    enable_webhook: true                     # default: true; set false to disable /webhook/<name> (requires poll_interval)
     branch: main                             # default: main
     compose_file: compose.yaml               # default: compose.yaml (repo mode) or /deploy/compose.yaml
     force_recreate: false                    # default: false

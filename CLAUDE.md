@@ -4,7 +4,7 @@ This document helps AI assistants understand the codebase and contribute effecti
 
 ## Project overview
 
-`unpush` is a continuous deployment service for [Uncloud](https://github.com/psviderski/uncloud). It runs as a container inside an Uncloud cluster and deploys services in response to GitHub push webhooks.
+`unpush` is a continuous deployment service for [Uncloud](https://github.com/psviderski/uncloud). It runs as a container inside an Uncloud cluster and deploys services automatically when a branch changes, triggered by GitHub push webhooks or by polling the remote branch on a configurable interval.
 
 The deployer connects to the Uncloud daemon through its Unix socket (`/run/uncloud/uncloud.sock`), which every node in the cluster exposes. This gives the deployer full cluster access without needing SSH keys or network configuration.
 
@@ -29,15 +29,15 @@ misc/design.md  Architecture decisions and options considered during design.
 
 `AppConfig` — top-level config with `ListenAddr`, `StateDB`, and `Targets []TargetConfig`.
 
-`TargetConfig` — per-target settings: `Name`, `WebhookSecret`, `Branch`, `ComposeFile`, `ForceRecreate`, `RepoURL`, `RepoToken`, `WorkDir`, `PollInterval`, `SocketPath`. Each `Deployer` holds one `TargetConfig`.
+`TargetConfig` — per-target settings: `Name`, `WebhookSecret`, `Branch`, `ComposeFile`, `ForceRecreate`, `RepoURL`, `RepoToken`, `WorkDir`, `PollInterval`, `EnableWebhook`, `SocketPath`. Each `Deployer` holds one `TargetConfig`.
 
 `Deployer` — holds a `TargetConfig`, a shared `*sql.DB`, and a buffered channel queue (capacity 1).
 
 ## Configuration
 
-Configuration is always loaded from a YAML file. `loadAppConfig` reads the path from `DEPLOYER_CONFIG`, defaulting to `/deploy/config.yaml`. `loadFileConfig` parses the file and fills in defaults: `branch` → `main`, `work_dir` → `/deploy/work/<name>`, `compose_file` → `compose.yaml` if `repo_url` is set, `/deploy/compose.yaml` otherwise, `state_db` → `/deploy/state.db`. It also validates that every target has a unique non-empty name and copies the global `socket_path` into each `TargetConfig`.
+Configuration is always loaded from a YAML file. `loadAppConfig` reads the path from `DEPLOYER_CONFIG`, defaulting to `/deploy/config.yaml`. `loadFileConfig` parses the file and fills in defaults: `branch` → `main`, `work_dir` → `/deploy/work/<name>`, `compose_file` → `compose.yaml` if `repo_url` is set, `/deploy/compose.yaml` otherwise, `state_db` → `/deploy/state.db`, `enable_webhook` → `true`. It also validates that every target has a unique non-empty name and copies the global `socket_path` into each `TargetConfig`.
 
-Each target registers its webhook handler at `/webhook/<name>`.
+Each target registers a webhook handler at `/webhook/<name>` by default. Set `enable_webhook: false` to skip registration (requires `poll_interval`). Poll and webhook triggers can be active simultaneously on the same target.
 
 ## Key dependencies
 
@@ -65,14 +65,16 @@ In repo mode, the deployer also uses these directly (both are transitive depende
 
 ## Deploy flow
 
-**Webhook trigger:**
+Both triggers can be active on the same target simultaneously. Each target always has a deploy loop goroutine; the triggers share the same buffered channel queue (capacity 1).
+
+**Webhook trigger** (active when `enable_webhook` is true, which is the default):
 1. `webhook.go` receives POST `/webhook/<name>`.
 2. HMAC signature is verified against the target's `WebhookSecret`.
 3. The event is checked: must be a push to the configured branch.
-4. `triggerDeploy` sends the event to the deployer's channel (capacity 1). A second concurrent event is queued. A third is dropped with a warning.
+4. `triggerDeploy` sends the event to the deployer's channel. A second concurrent event is queued. A third is dropped with a warning.
 5. `deployLoop` runs in a goroutine and processes events one at a time.
 
-**Poll trigger:**
+**Poll trigger** (active when `poll_interval` is set):
 1. `startPoller` runs in a goroutine. It seeds `lastCommit` from the state DB (most recent deploy record for that target) and falls back to the local git HEAD if no record exists.
 2. It calls `poll` immediately on startup, then on each interval tick.
 3. `poll` fetches the remote HEAD via `git ls-remote`. If the commit changed, it calls `triggerDeploy`. If the commit is the same but the last deploy record for that commit shows failure, it retries by calling `triggerDeploy` again.
