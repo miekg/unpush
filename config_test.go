@@ -34,7 +34,7 @@ targets:
   - name: infra
     compose_file: /deploy/infra.yaml
 `)
-	t.Setenv("DEPLOYER_CONFIG", path)
+	t.Setenv("UNPUSH_CONFIG", path)
 
 	cfg, err := loadAppConfig()
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ targets:
 func TestLoadFileConfig_Defaults(t *testing.T) {
 	// A minimal target with no optional fields should get all defaults filled in.
 	path := writeConfig(t, "targets:\n  - name: app\n    webhook_secret: s3cr3t\n")
-	t.Setenv("DEPLOYER_CONFIG", path)
+	t.Setenv("UNPUSH_CONFIG", path)
 
 	cfg, err := loadAppConfig()
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ targets:
     repo_url: https://github.com/org/app
     branch: production
 `)
-	t.Setenv("DEPLOYER_CONFIG", path)
+	t.Setenv("UNPUSH_CONFIG", path)
 
 	cfg, err := loadAppConfig()
 	require.NoError(t, err)
@@ -131,7 +131,7 @@ func TestLoadFileConfig_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("DEPLOYER_CONFIG", writeConfig(t, tt.yaml))
+			t.Setenv("UNPUSH_CONFIG", writeConfig(t, tt.yaml))
 			_, err := loadAppConfig()
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)

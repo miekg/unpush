@@ -55,10 +55,10 @@ type fileConfig struct {
 	Targets    []TargetConfig `yaml:"targets"`
 }
 
-// loadAppConfig reads the YAML config file at the path given by DEPLOYER_CONFIG,
+// loadAppConfig reads the YAML config file at the path given by UNPUSH_CONFIG,
 // defaulting to /deploy/config.yaml.
 func loadAppConfig() (AppConfig, error) {
-	path := os.Getenv("DEPLOYER_CONFIG")
+	path := os.Getenv("UNPUSH_CONFIG")
 	if path == "" {
 		path = "/deploy/config.yaml"
 	}
@@ -82,13 +82,13 @@ func loadFileConfig(path string) (AppConfig, error) {
 	if fc.SocketPath == "" {
 		fc.SocketPath = "/run/uncloud/uncloud.sock"
 	}
-	if v := os.Getenv("DEPLOYER_STATE_DB"); v != "" {
+	if v := os.Getenv("UNPUSH_STATE_DB"); v != "" {
 		fc.StateDB = v
 	} else if fc.StateDB == "" {
 		fc.StateDB = "/deploy/state.db"
 	}
 
-	globalRepoToken := os.Getenv("DEPLOYER_REPO_TOKEN")
+	globalRepoToken := os.Getenv("UNPUSH_REPO_TOKEN")
 
 	seen := make(map[string]bool)
 	for i := range fc.Targets {

@@ -12,7 +12,7 @@ The deployer connects to the Uncloud daemon through its Unix socket (`/run/unclo
 
 ```
 main.go         Entry point. Loads config, opens state DB, registers webhook routes, runs the HTTP server.
-config.go       Loads AppConfig from a YAML file (DEPLOYER_CONFIG, default /deploy/config.yaml).
+config.go       Loads AppConfig from a YAML file (UNPUSH_CONFIG, default /deploy/config.yaml).
 webhook.go      GitHub webhook handler. Reads body, verifies HMAC, dispatches to deployer.
 deployer.go     Core deploy logic. Connects to socket, loads compose file, plans and executes deploy.
 build.go        Builds services with a build directive and pushes images to cluster machines.
@@ -35,7 +35,7 @@ misc/design.md  Architecture decisions and options considered during design.
 
 ## Configuration
 
-Configuration is always loaded from a YAML file. `loadAppConfig` reads the path from `DEPLOYER_CONFIG`, defaulting to `/deploy/config.yaml`. `loadFileConfig` parses the file and fills in defaults: `branch` → `main`, `work_dir` → `/deploy/work/<name>`, `compose_file` → `compose.yaml` if `repo_url` is set, `/deploy/compose.yaml` otherwise, `state_db` → `/deploy/state.db`, `enable_webhook` → `true`. It also validates that every target has a unique non-empty name and copies the global `socket_path` into each `TargetConfig`.
+Configuration is always loaded from a YAML file. `loadAppConfig` reads the path from `UNPUSH_CONFIG`, defaulting to `/deploy/config.yaml`. `loadFileConfig` parses the file and fills in defaults: `branch` → `main`, `work_dir` → `/deploy/work/<name>`, `compose_file` → `compose.yaml` if `repo_url` is set, `/deploy/compose.yaml` otherwise, `state_db` → `/deploy/state.db`, `enable_webhook` → `true`. It also validates that every target has a unique non-empty name and copies the global `socket_path` into each `TargetConfig`.
 
 Each target registers a webhook handler at `/webhook/<name>` by default. Set `enable_webhook: false` to skip registration (requires `poll_interval`). Poll and webhook triggers can be active simultaneously on the same target.
 
@@ -43,21 +43,21 @@ Each target registers a webhook handler at `/webhook/<name>` by default. Set `en
 
 The deployer imports `github.com/psviderski/uncloud` as a standard Go module dependency pinned to a specific commit. The uncloud packages used directly:
 
-| Package | Purpose |
-|---|---|
-| `pkg/client` | `client.New` creates a cluster client from a connector |
-| `pkg/client/connector` | `NewUnixConnector` connects to the daemon socket |
-| `pkg/client/compose` | `LoadProject` and `NewDeploymentWithStrategy` implement `uc deploy` logic |
-| `pkg/client/deploy` | `RollingStrategy` controls how containers are updated |
+| Package                | Purpose                                                                   |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `pkg/client`           | `client.New` creates a cluster client from a connector                    |
+| `pkg/client/connector` | `NewUnixConnector` connects to the daemon socket                          |
+| `pkg/client/compose`   | `LoadProject` and `NewDeploymentWithStrategy` implement `uc deploy` logic |
+| `pkg/client/deploy`    | `RollingStrategy` controls how containers are updated                     |
 
 In repo mode, the deployer also uses these directly (both are transitive dependencies of uncloud):
 
-| Package | Purpose |
-|---|---|
-| `github.com/docker/cli/cli/command` | Creates a Docker CLI client for the build step |
-| `github.com/docker/compose/v2/pkg/compose` | Builds images via the Compose Go library |
+| Package                                            | Purpose                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------ |
+| `github.com/docker/cli/cli/command`                | Creates a Docker CLI client for the build step               |
+| `github.com/docker/compose/v2/pkg/compose`         | Builds images via the Compose Go library                     |
 | `github.com/google/go-containerregistry/pkg/crane` | Pushes images to remote machine unregistries over plain HTTP |
-| `modernc.org/sqlite` | Pure-Go SQLite driver (no cgo) for the deploy state database |
+| `modernc.org/sqlite`                               | Pure-Go SQLite driver (no cgo) for the deploy state database |
 
 `internal/cli.BuildServices` in uncloud contains equivalent build logic but is not importable from outside the module. `build.go` replicates the relevant parts. See the TODO comment there for the long-term option.
 
@@ -68,6 +68,7 @@ In repo mode, the deployer also uses these directly (both are transitive depende
 Both triggers can be active on the same target simultaneously. Each target always has a deploy loop goroutine; the triggers share the same buffered channel queue (capacity 1).
 
 **Webhook trigger** (active when `enable_webhook` is true, which is the default):
+
 1. `webhook.go` receives POST `/webhook/<name>`.
 2. HMAC signature is verified against the target's `WebhookSecret`.
 3. The event is checked: must be a push to the configured branch.
@@ -75,11 +76,13 @@ Both triggers can be active on the same target simultaneously. Each target alway
 5. `deployLoop` runs in a goroutine and processes events one at a time.
 
 **Poll trigger** (active when `poll_interval` is set):
+
 1. `startPoller` runs in a goroutine. It seeds `lastCommit` from the state DB (most recent deploy record for that target) and falls back to the local git HEAD if no record exists.
 2. It calls `poll` immediately on startup, then on each interval tick.
 3. `poll` fetches the remote HEAD via `git ls-remote`. If the commit changed, it calls `triggerDeploy`. If the commit is the same but the last deploy record for that commit shows failure, it retries by calling `triggerDeploy` again.
 
 **Deploy execution (`runDeploy`):**
+
 1. If `RepoURL` is set: clones or fetches the repository, checks out the exact push commit.
 2. Connects to the Uncloud socket and loads the compose file.
 3. If `RepoURL` is set and any services have a `build` directive: builds images locally via Docker, then pushes them to each remote cluster machine directly over WireGuard. The local machine is skipped because the image is already in its containerd store.
@@ -110,13 +113,13 @@ go test ./...
 To test the webhook handler manually, start the server with a config file:
 
 ```bash
-cat > /tmp/deployer-config.yaml <<'EOF'
+cat > /tmp/unpush-config.yaml <<'EOF'
 targets:
   - name: app
     webhook_secret: test
     branch: main
 EOF
-DEPLOYER_CONFIG=/tmp/deployer-config.yaml mise run run &
+UNPUSH_CONFIG=/tmp/unpush-config.yaml mise run run &
 
 curl -X POST http://localhost:8080/webhook/app \
   -H "X-GitHub-Event: push" \
