@@ -76,6 +76,23 @@ func TestLoadFileConfig_Defaults(t *testing.T) {
 	assert.Equal(t, "/run/uncloud/uncloud.sock", tgt.SocketPath)
 }
 
+func TestLoadFileConfig_PassEnv(t *testing.T) {
+	path := writeConfig(t, `
+targets:
+  - name: app
+    webhook_secret: s
+    pass_env:
+      - DATABASE_URL
+      - API_KEY
+`)
+	t.Setenv("UNPUSH_CONFIG", path)
+
+	cfg, err := loadAppConfig()
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"DATABASE_URL", "API_KEY"}, cfg.Targets[0].PassEnv)
+}
+
 func TestLoadFileConfig_PollTarget(t *testing.T) {
 	path := writeConfig(t, `
 targets:

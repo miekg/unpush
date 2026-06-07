@@ -105,7 +105,45 @@ targets:
     repo_url: https://github.com/org/repo # enables repo mode; required for poll trigger
     repo_token: <pat> # for private repos; requires Contents: read
     work_dir: /deploy/work/<name> # default: /deploy/work/<name>
+    pass_env: [] # env var names to forward from the deployer into every service
 ```
+
+### Passing secrets to deployed services
+
+Use `pass_env` to inject secrets into your services at deploy time without storing them in the repo. Set the secrets as env vars on the unpush container, then list their names in `pass_env`:
+
+```yaml
+# unpush config.yaml
+targets:
+  - name: app
+    repo_url: https://github.com/you/app
+    branch: main
+    pass_env:
+      - DATABASE_URL
+      - SECRET_KEY
+```
+
+```yaml
+# app's compose.yaml in the repo — no secrets here
+services:
+  web:
+    image: myapp:latest
+    # DATABASE_URL and SECRET_KEY are injected by unpush at deploy time
+```
+
+```yaml
+# unpush's own compose.yaml
+services:
+  unpush:
+    image: ghcr.io/tonyo/unpush:latest
+    environment:
+      - DATABASE_URL=postgres://user:pass@db/myapp
+      - SECRET_KEY=hunter2
+    volumes:
+      - /run/uncloud/uncloud.sock:/run/uncloud/uncloud.sock
+```
+
+`pass_env` values override anything already set for the same key in the compose file. If a listed variable is not set in the deployer's environment, unpush logs a warning and continues.
 
 ## Endpoints
 
