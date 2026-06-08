@@ -106,7 +106,7 @@ mise run build:image
 
 ## Testing
 
-Unit tests cover config loading, HMAC signature verification, and webhook routing. Run them with:
+Unit tests cover config loading, HMAC signature verification, webhook routing, and env injection (`injectPassEnv`). Run them with:
 
 ```bash
 go test ./...

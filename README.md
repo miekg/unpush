@@ -1,6 +1,6 @@
 # unpush
 
-A an experimental continuous deployment service for [Uncloud](https://github.com/psviderski/uncloud). It runs as a container inside your cluster and deploys your services automatically whenever your branch changes.
+An experimental continuous deployment service for [Uncloud](https://github.com/psviderski/uncloud). It runs as a container inside your cluster and deploys your services automatically whenever your branch changes.
 
 ## How it works
 
