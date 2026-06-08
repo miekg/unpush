@@ -128,6 +128,19 @@ curl -X POST http://localhost:8080/webhook/app \
   -d '{"ref":"refs/heads/main","repository":{"full_name":"you/app"},"head_commit":{"id":"abc12345","message":"test"}}'
 ```
 
+## CI and release
+
+CI runs on every push to `main`, `test/**`, and `release/**`, and on pull requests to `main`. It runs lint (`golangci-lint`) and tests (`go test ./...`) in parallel jobs.
+
+To release a new version, push a `v*` tag:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+The CI runs lint and tests first. If they pass, it builds the Docker image and pushes it to `ghcr.io/tonyo/unpush` with three tags: `:1.2.3`, `:1.2`, and `:latest`.
+
 ## Documentation style
 
 Follow the same conventions as `uncloud`:
