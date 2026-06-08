@@ -42,9 +42,6 @@ type TargetConfig struct {
 	// EnableWebhook controls whether the /webhook/<name> HTTP endpoint is registered for this target.
 	// Defaults to true. Set to false to disable it (requires poll_interval to be set).
 	EnableWebhook *bool `yaml:"enable_webhook"`
-	// PassEnv lists env var names to read from the deployer's own environment and inject into every
-	// service at deploy time. Use this to supply secrets without storing them in the repo.
-	PassEnv []string `yaml:"pass_env"`
 	// SocketPath is the path to the Uncloud daemon Unix socket. Inherited from global config; not set
 	// per-target in YAML.
 	SocketPath string `yaml:"-"`

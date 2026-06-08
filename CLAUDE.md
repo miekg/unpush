@@ -29,7 +29,7 @@ misc/design.md  Architecture decisions and options considered during design.
 
 `AppConfig` — top-level config with `ListenAddr`, `StateDB`, and `Targets []TargetConfig`.
 
-`TargetConfig` — per-target settings: `Name`, `WebhookSecret`, `Branch`, `ComposeFile`, `ForceRecreate`, `RepoURL`, `RepoToken`, `WorkDir`, `PollInterval`, `EnableWebhook`, `PassEnv`, `SocketPath`. Each `Deployer` holds one `TargetConfig`.
+`TargetConfig` — per-target settings: `Name`, `WebhookSecret`, `Branch`, `ComposeFile`, `ForceRecreate`, `RepoURL`, `RepoToken`, `WorkDir`, `PollInterval`, `EnableWebhook`, `SocketPath`. Each `Deployer` holds one `TargetConfig`.
 
 `Deployer` — holds a `TargetConfig`, a shared `*sql.DB`, and a buffered channel queue (capacity 1).
 
@@ -38,8 +38,6 @@ misc/design.md  Architecture decisions and options considered during design.
 Configuration is always loaded from a YAML file. `loadAppConfig` reads the path from `UNPUSH_CONFIG`, defaulting to `/deploy/config.yaml`. `loadFileConfig` parses the file and fills in defaults: `branch` → `main`, `work_dir` → `/deploy/work/<name>`, `compose_file` → `compose.yaml` if `repo_url` is set, `/deploy/compose.yaml` otherwise, `state_db` → `/deploy/state.db`, `enable_webhook` → `true`. It also validates that every target has a unique non-empty name and copies the global `socket_path` into each `TargetConfig`.
 
 Each target registers a webhook handler at `/webhook/<name>` by default. Set `enable_webhook: false` to skip registration (requires `poll_interval`). Poll and webhook triggers can be active simultaneously on the same target.
-
-`pass_env` lists env var names to read from the deployer's environment and inject into every service's environment map after the compose file is loaded, overriding any same-key values from the compose file. Missing vars produce a warning but do not abort the deploy. `injectPassEnv` in `deployer.go` implements this; it takes an injectable `environ` function for testability.
 
 ## Key dependencies
 
@@ -106,7 +104,7 @@ mise run build:image
 
 ## Testing
 
-Unit tests cover config loading, HMAC signature verification, webhook routing, and env injection (`injectPassEnv`). Run them with:
+Unit tests cover config loading, HMAC signature verification, and webhook routing. Run them with:
 
 ```bash
 go test ./...

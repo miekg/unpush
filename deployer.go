@@ -4,12 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"time"
 
 	composecli "github.com/compose-spec/compose-go/v2/cli"
-	composetypes "github.com/compose-spec/compose-go/v2/types"
 	"github.com/psviderski/uncloud/pkg/client"
 	"github.com/psviderski/uncloud/pkg/client/compose"
 	"github.com/psviderski/uncloud/pkg/client/connector"
@@ -90,12 +88,6 @@ func (d *Deployer) runDeploy(event pushEvent) {
 		return
 	}
 
-	if len(d.cfg.PassEnv) > 0 {
-		for _, name := range injectPassEnv(project, d.cfg.PassEnv, os.LookupEnv) {
-			slog.Warn("pass_env variable not set in deployer environment", "target", d.cfg.Name, "var", name)
-		}
-	}
-
 	if d.cfg.RepoURL != "" {
 		slog.Info("Building and pushing images", "target", d.cfg.Name, "commit", shortID)
 		if err := buildAndPush(ctx, project, cli); err != nil {
@@ -133,33 +125,4 @@ func (d *Deployer) runDeploy(event pushEvent) {
 
 	succeeded = true
 	slog.Info("Deployment completed", "target", d.cfg.Name, "commit", shortID, "duration", time.Since(start))
-}
-
-// injectPassEnv reads each name from environ and sets it in every service's environment map,
-// overriding any value already present in the compose file. It returns the names that were not
-// found in environ so the caller can warn. The environ argument is injectable for testing;
-// pass os.LookupEnv in production.
-func injectPassEnv(project *composetypes.Project, names []string, environ func(string) (string, bool)) []string {
-	var missing []string
-	vals := make(map[string]string, len(names))
-	for _, name := range names {
-		if val, ok := environ(name); ok {
-			vals[name] = val
-		} else {
-			missing = append(missing, name)
-		}
-	}
-	if len(vals) > 0 {
-		for svcName, svc := range project.Services {
-			if svc.Environment == nil {
-				svc.Environment = make(composetypes.MappingWithEquals)
-			}
-			for name, val := range vals {
-				v := val
-				svc.Environment[name] = &v
-			}
-			project.Services[svcName] = svc
-		}
-	}
-	return missing
 }
