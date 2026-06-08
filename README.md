@@ -1,6 +1,12 @@
 # unpush
 
-An experimental continuous deployment service for [Uncloud](https://github.com/psviderski/uncloud). It runs as a container inside your cluster and deploys your services automatically whenever your branch changes.
+An experimental continuous deployment service for [Uncloud](https://github.com/psviderski/uncloud). It runs as a container inside your cluster and deploys your services automatically whenever you push changes to your repository.
+
+## Problem
+
+Let's say you have a repository with your application source code, and you want to build and deploy it whenever you push a change. You could set up a CI pipeline that builds your images and pushes them to a registry, then have a separate process that pulls those images and deploys them to your cluster. But that's a lot of moving parts to maintain, and it can be slow.
+
+`unpush` solves this problem by running inside your Uncloud cluster and deploying your services directly from your Git repository. It can be triggered by GitHub webhooks or by polling the repository for changes. It can also build your images from source if you use the repo mode.
 
 ## How it works
 
@@ -24,7 +30,7 @@ There are two deployment modes, which can be combined with either trigger:
 
 **1. Create a config file.**
 
-Webhook trigger:
+Option A, webhook trigger:
 
 ```yaml
 # config.yaml
@@ -32,10 +38,9 @@ targets:
   - name: app
     webhook_secret: <your-webhook-secret>
     repo_url: https://github.com/you/app
-    repo_token: <pat> # omit for public repos
 ```
 
-Poll trigger (no webhook needed):
+Option B, poll trigger (no webhook needed):
 
 ```yaml
 # config.yaml
@@ -43,7 +48,6 @@ targets:
   - name: app
     poll_interval: 5m
     repo_url: https://github.com/you/app
-    repo_token: <pat> # omit for public repos
 ```
 
 Add as many targets as you need. All targets register a `/webhook/<name>` endpoint by default. Set `enable_webhook: false` to opt out (only makes sense when `poll_interval` is also set).
@@ -76,7 +80,7 @@ services:
 uc deploy
 ```
 
-**4. Configure the GitHub webhook.** (skip if using `enable_webhook: false`)
+**4. Configure the GitHub webhook.** (skip if using poll trigger only)
 
 In your repository settings, add a webhook:
 
@@ -87,25 +91,40 @@ In your repository settings, add a webhook:
 
 ## Config file reference
 
-The config file defaults to `/deploy/config.yaml`. Set `UNPUSH_CONFIG` to use a different path. Set `UNPUSH_STATE_DB` to override the state database path. Set `UNPUSH_REPO_TOKEN` to set a global GitHub PAT used for any target that does not have its own `repo_token`. Set `LOG_LEVEL` to change the log verbosity (default: `info`; options: `debug`, `info`, `warn`, `error`).
+The config file is read from `/deploy/config.yaml` by default.
 
-```yaml
-listen_addr: :8080 # optional
-socket_path: /run/uncloud/uncloud.sock # optional
-state_db: /deploy/state.db # optional; SQLite file recording all deploy attempts
+**Environment variables**
 
-targets:
-  - name: <string> # required; used in /webhook/<name>
-    webhook_secret: <string> # required for webhook trigger; strongly recommended
-    poll_interval: <duration> # enables poll trigger, e.g. 5m, 1h
-    enable_webhook: true # default: true; set false to disable /webhook/<name> (requires poll_interval)
-    branch: main # default: main
-    compose_file: compose.yaml # default: compose.yaml (repo mode) or /deploy/compose.yaml
-    force_recreate: false # default: false
-    repo_url: https://github.com/org/repo # enables repo mode; required for poll trigger
-    repo_token: <pat> # for private repos; requires Contents: read
-    work_dir: /deploy/work/<name> # default: /deploy/work/<name>
-```
+| Variable            | Description                                                          |
+| ------------------- | -------------------------------------------------------------------- |
+| `UNPUSH_CONFIG`     | Path to the config file. Default: `/deploy/config.yaml`              |
+| `UNPUSH_STATE_DB`   | Path to the SQLite state database. Default: `/deploy/state.db`       |
+| `UNPUSH_REPO_TOKEN` | Global GitHub PAT for targets that don't have their own `repo_token` |
+| `LOG_LEVEL`         | Log verbosity: `debug`, `info`, `warn`, `error`. Default: `info`     |
+
+**Top-level fields**
+
+| Field         | Default                     | Description                               |
+| ------------- | --------------------------- | ----------------------------------------- |
+| `listen_addr` | `:8080`                     | Address the HTTP server listens on        |
+| `socket_path` | `/run/uncloud/uncloud.sock` | Path to the Uncloud daemon socket         |
+| `state_db`    | `/deploy/state.db`          | SQLite file recording all deploy attempts |
+| `targets`     | —                           | List of deploy targets (see below)        |
+
+**Target fields**
+
+| Field            | Default                                             | Description                                                                      |
+| ---------------- | --------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `name`           | required                                            | Unique target name. Used in `/webhook/<name>`                                    |
+| `webhook_secret` | —                                                   | HMAC secret for verifying GitHub webhook payloads. Required for webhook trigger  |
+| `poll_interval`  | —                                                   | Enables poll trigger. Duration string, e.g. `5m`, `1h`                           |
+| `enable_webhook` | `true`                                              | Set `false` to disable the `/webhook/<name>` endpoint. Requires `poll_interval`  |
+| `branch`         | `main`                                              | Branch to watch                                                                  |
+| `compose_file`   | `compose.yaml` (repo mode) / `/deploy/compose.yaml` | Path to the compose file                                                         |
+| `force_recreate` | `false`                                             | Force recreate containers on every deploy                                        |
+| `repo_url`       | —                                                   | Enables repo mode. Required for poll trigger. E.g. `https://github.com/org/repo` |
+| `repo_token`     | —                                                   | GitHub PAT for private repos. Requires `Contents: read`                          |
+| `work_dir`       | `/deploy/work/<name>`                               | Directory where the repository is cloned                                         |
 
 ## Endpoints
 
