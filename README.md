@@ -91,10 +91,10 @@ In your GitHub repository settings, add a webhook:
 
 ## Examples
 
-| Example                                          | Trigger | Description                                                                     |
-| ------------------------------------------------ | ------- | ------------------------------------------------------------------------------- |
-| [docs/examples/webhook/](docs/examples/webhook/) | Webhook | GitHub sends a push event to unpush. Requires a public endpoint.                |
-| [docs/examples/poller/](docs/examples/poller/)   | Poll    | unpush checks the remote branch on a fixed interval. No public endpoint needed. |
+| Example                                                                  | Trigger | Description                                                                     |
+| ------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------- |
+| [docs/examples/compose-webhook.yaml](docs/examples/compose-webhook.yaml) | Webhook | GitHub sends a push event to unpush. Requires a public endpoint.                |
+| [docs/examples/compose-poller.yaml](docs/examples/compose-poller.yaml)   | Poll    | unpush checks the remote branch on a fixed interval. No public endpoint needed. |
 
 ## Config file reference
 
