@@ -1,0 +1,26 @@
+### Example `compose.yaml` for a GitHub webhook trigger
+# Your app will be redeployed whenever a push event is sent to unpush by GitHub.
+
+services:
+  unpush:
+    image: ghcr.io/tonyo/unpush:latest
+    volumes:
+      - /run/uncloud/uncloud.sock:/run/uncloud/uncloud.sock
+      # Required if your repository's Compose file has "build" instructions
+      - /var/run/docker.sock:/var/run/docker.sock
+    configs:
+      - source: unpush_config
+        target: /deploy/config.yaml
+    x-ports:
+      - your-domain.example.com:8080/https
+    restart: always
+
+configs:
+  unpush_config:
+    content: |
+      targets:
+        - name: myapp
+          repo_url: https://github.com/you/myapp
+          branch: main
+          # This has to match the webhook secret you set in GitHub
+          webhook_secret: replace-with-a-strong-random-secret

@@ -89,6 +89,13 @@ In your GitHub repository settings, add a webhook:
 - Secret: the `webhook_secret` you set for that target
 - Events: send only **push** events
 
+## Examples
+
+| Example                                          | Trigger | Description                                                                     |
+| ------------------------------------------------ | ------- | ------------------------------------------------------------------------------- |
+| [docs/examples/webhook/](docs/examples/webhook/) | Webhook | GitHub sends a push event to unpush. Requires a public endpoint.                |
+| [docs/examples/poller/](docs/examples/poller/)   | Poll    | unpush checks the remote branch on a fixed interval. No public endpoint needed. |
+
 ## Config file reference
 
 The config file is read from `/deploy/config.yaml` by default.

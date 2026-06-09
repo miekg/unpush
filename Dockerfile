@@ -13,4 +13,7 @@ FROM alpine:3.22
 # git and ca-certificates are needed for repo mode: cloning over HTTPS and checking out commits.
 RUN apk add --no-cache git ca-certificates
 COPY --from=builder /unpush /unpush
+
+EXPOSE 8080
+
 ENTRYPOINT ["/unpush"]

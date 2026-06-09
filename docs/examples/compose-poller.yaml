@@ -1,0 +1,35 @@
+### Example `compose.yaml` for a poll trigger
+# Your app will be redeployed whenever unpush detects a new commit on the specified branch.
+
+services:
+  unpush:
+    image: ghcr.io/tonyo/unpush:latest
+    volumes:
+      - /run/uncloud/uncloud.sock:/run/uncloud/uncloud.sock
+      # Required if your repository's Compose file has "build" instructions
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Stores the state (as a SQLite database)
+      - unpush_data:/deploy/data
+    configs:
+      - source: unpush_config
+        target: /deploy/config.yaml
+    restart: always
+
+configs:
+  unpush_config:
+    content: |
+      targets:
+        - name: myapp
+          repo_url: https://github.com/you/myapp
+          branch: main
+          # Do not listen for webhooks
+          enable_webhook: false
+          # Pull the changes every 5 minutes
+          poll_interval: 5m
+          force_recreate: true
+          # Uses GITHUB_TOKEN environment variable as a Personal Access Token
+          # Required for private repos
+          repo_token: ${GITHUB_TOKEN}
+
+volumes:
+  unpush_data:
