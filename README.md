@@ -151,3 +151,7 @@ Or build the binary with mise:
 ```bash
 mise run build
 ```
+
+## Notes
+
+This project is experimental and has been prototyped using AI assistance.
