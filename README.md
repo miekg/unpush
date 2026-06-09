@@ -82,7 +82,7 @@ uc deploy
 
 **4. Configure the GitHub webhook.** (skip if using poll trigger only)
 
-In your repository settings, add a webhook:
+In your GitHub repository settings, add a webhook:
 
 - Payload URL: `http://<your-machine-ip>:8080/webhook/app`
 - Content type: `application/json`
@@ -98,7 +98,7 @@ The config file is read from `/deploy/config.yaml` by default.
 | Variable            | Description                                                          |
 | ------------------- | -------------------------------------------------------------------- |
 | `UNPUSH_CONFIG`     | Path to the config file. Default: `/deploy/config.yaml`              |
-| `UNPUSH_STATE_DB`   | Path to the SQLite state database. Default: `/deploy/state.db`       |
+| `UNPUSH_STATE_DB`   | Path to the SQLite state database. Default: `/deploy/data/state.db`  |
 | `UNPUSH_REPO_TOKEN` | Global GitHub PAT for targets that don't have their own `repo_token` |
 | `LOG_LEVEL`         | Log verbosity: `debug`, `info`, `warn`, `error`. Default: `info`     |
 
@@ -108,7 +108,7 @@ The config file is read from `/deploy/config.yaml` by default.
 | ------------- | --------------------------- | ----------------------------------------- |
 | `listen_addr` | `:8080`                     | Address the HTTP server listens on        |
 | `socket_path` | `/run/uncloud/uncloud.sock` | Path to the Uncloud daemon socket         |
-| `state_db`    | `/deploy/state.db`          | SQLite file recording all deploy attempts |
+| `state_db`    | `/deploy/data/state.db`     | SQLite file recording all deploy attempts |
 | `targets`     | —                           | List of deploy targets (see below)        |
 
 **Target fields**

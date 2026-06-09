@@ -1,12 +1,16 @@
-FROM golang:1.26 AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
 COPY *.go ./
-RUN CGO_ENABLED=0 go build -o /unpush .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -o /unpush .
 
-FROM debian:bookworm-slim
+FROM alpine:3.22
 # git and ca-certificates are needed for repo mode: cloning over HTTPS and checking out commits.
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache git ca-certificates
 COPY --from=builder /unpush /unpush
 ENTRYPOINT ["/unpush"]

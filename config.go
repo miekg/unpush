@@ -85,7 +85,7 @@ func loadFileConfig(path string) (AppConfig, error) {
 	if v := os.Getenv("UNPUSH_STATE_DB"); v != "" {
 		fc.StateDB = v
 	} else if fc.StateDB == "" {
-		fc.StateDB = "/deploy/state.db"
+		fc.StateDB = "/deploy/data/state.db"
 	}
 
 	globalRepoToken := os.Getenv("UNPUSH_REPO_TOKEN")
