@@ -4,14 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
+	"os/exec"
 	"path/filepath"
 	"time"
-
-	composecli "github.com/compose-spec/compose-go/v2/cli"
-	"github.com/psviderski/uncloud/pkg/client"
-	"github.com/psviderski/uncloud/pkg/client/compose"
-	"github.com/psviderski/uncloud/pkg/client/connector"
-	"github.com/psviderski/uncloud/pkg/client/deploy"
 )
 
 type Deployer struct {
@@ -72,57 +67,24 @@ func (d *Deployer) runDeploy(event pushEvent) {
 		}
 	}
 
-	slog.Info("Loading compose file", "target", d.cfg.Name, "commit", shortID, "file", composeFile)
+	slog.Info("Executing deployment via uc deploy", "target", d.cfg.Name, "commit", shortID)
 
-	conn := connector.NewUnixConnector(d.cfg.SocketPath)
-	cli, err := client.New(ctx, conn)
+	args := []string{
+		"deploy",
+		"-f", composeFile,
+		"--socket", d.cfg.SocketPath,
+	}
+	if d.cfg.ForceRecreate {
+		args = append(args, "--force-recreate")
+	}
+
+	cmd := exec.CommandContext(ctx, "/uc", args...)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		slog.Error("Failed to connect to uncloud socket", "target", d.cfg.Name, "error", err, "socket", d.cfg.SocketPath)
-		return
-	}
-	defer cli.Close()
-
-	project, err := compose.LoadProject(ctx, []string{composeFile}, composecli.WithOsEnv)
-	if err != nil {
-		slog.Error("Failed to load compose file", "target", d.cfg.Name, "error", err, "file", composeFile)
+		slog.Error("Deployment failed", "target", d.cfg.Name, "error", err, "output", string(output), "commit", shortID)
 		return
 	}
 
-	if d.cfg.RepoURL != "" {
-		slog.Info("Building and pushing images", "target", d.cfg.Name, "commit", shortID)
-		if err := buildAndPush(ctx, project, cli); err != nil {
-			slog.Error("Failed to build and push images", "target", d.cfg.Name, "error", err, "commit", shortID)
-			return
-		}
-	}
-
-	strategy := &deploy.RollingStrategy{
-		ForceRecreate: d.cfg.ForceRecreate,
-	}
-	deployment, err := compose.NewDeploymentWithStrategy(ctx, cli, project, strategy)
-	if err != nil {
-		slog.Error("Failed to create deployment", "target", d.cfg.Name, "error", err)
-		return
-	}
-
-	plan, err := deployment.Plan(ctx)
-	if err != nil {
-		slog.Error("Failed to plan deployment", "target", d.cfg.Name, "error", err)
-		return
-	}
-
-	if plan.IsEmpty() {
-		succeeded = true
-		slog.Info("Services are up to date, nothing to deploy", "target", d.cfg.Name, "commit", shortID)
-		return
-	}
-
-	slog.Info("Executing deployment plan", "target", d.cfg.Name, "commit", shortID)
-	if err := plan.Execute(ctx, cli); err != nil {
-		slog.Error("Deployment failed", "target", d.cfg.Name, "error", err, "duration", time.Since(start))
-		return
-	}
-
+	slog.Info("Deployment completed", "target", d.cfg.Name, "commit", shortID, "output", string(output), "duration", time.Since(start))
 	succeeded = true
-	slog.Info("Deployment completed", "target", d.cfg.Name, "commit", shortID, "duration", time.Since(start))
 }
