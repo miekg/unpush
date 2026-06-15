@@ -69,7 +69,7 @@ func (d *Deployer) runDeploy(event pushEvent) {
 
 	slog.Info("Executing deployment via uc deploy", "target", d.cfg.Name, "commit", shortID)
 
-	args := []string{"deploy", "-f", composeFile}
+	args := []string{"deploy", "-f", composeFile, "-y"}
 	if d.cfg.ForceRecreate {
 		args = append(args, "--recreate")
 	}
