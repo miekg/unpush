@@ -69,13 +69,9 @@ func (d *Deployer) runDeploy(event pushEvent) {
 
 	slog.Info("Executing deployment via uc deploy", "target", d.cfg.Name, "commit", shortID)
 
-	args := []string{
-		"deploy",
-		"-f", composeFile,
-		"--socket", d.cfg.SocketPath,
-	}
+	args := []string{"deploy", "-f", composeFile}
 	if d.cfg.ForceRecreate {
-		args = append(args, "--force-recreate")
+		args = append(args, "--recreate")
 	}
 
 	cmd := exec.CommandContext(ctx, "/uc", args...)
