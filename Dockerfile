@@ -1,25 +1,23 @@
 FROM golang:1.26-alpine AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN go mod download
+RUN -mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
 COPY *.go ./
-ENV GOARCH=amd64
 ENV CGO_ENABLED=0
-RUN go build -o /unpush .
+RUN -mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go build -o /unpush .
 
 FROM golang:1.26-alpine AS uncloud
 WORKDIR /src
-ENV GOPATH=/
-ENV GOARCH=amd64
+ENV GOBIN=/
 ENV CGO_ENABLED=0
-RUN go install github.com/psviderski/uncloud/cmd/uncloud@latest
+RUN -mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install github.com/psviderski/uncloud/cmd/uncloud@latest
 
 
 FROM alpine:3.22
 # git and ca-certificates are needed for repo mode: cloning over HTTPS and checking out commits.
 RUN apk add --no-cache git ca-certificates
 COPY --from=builder /unpush /unpush
-COPY --from=uncloud /bin/linux_amd64/uncloud /uc
+COPY --from=uncloud /uncloud /uc
 
 EXPOSE 8080
 
